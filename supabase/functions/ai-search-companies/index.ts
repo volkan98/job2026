@@ -145,16 +145,41 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno 
       throw new Error('No response from AI');
     }
 
-    // Parse JSON from response
+    // Parse JSON from response - handle truncated responses
     let companies;
     try {
       let jsonStr = content.trim();
       if (jsonStr.startsWith('```')) {
         jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
       }
-      companies = JSON.parse(jsonStr);
+      
+      // Try to parse as-is first
+      try {
+        companies = JSON.parse(jsonStr);
+      } catch {
+        // If parsing fails, try to recover partial JSON array
+        console.log('Initial parse failed, attempting recovery...');
+        
+        // Find the last complete object in the array
+        let lastValidIndex = jsonStr.lastIndexOf('}');
+        while (lastValidIndex > 0) {
+          const testStr = jsonStr.substring(0, lastValidIndex + 1) + ']';
+          try {
+            companies = JSON.parse(testStr);
+            console.log('Recovered', companies.length, 'companies from truncated response');
+            break;
+          } catch {
+            // Find the previous closing brace
+            lastValidIndex = jsonStr.lastIndexOf('}', lastValidIndex - 1);
+          }
+        }
+        
+        if (!companies) {
+          throw new Error('Could not recover valid JSON');
+        }
+      }
     } catch (parseError) {
-      console.error('Failed to parse AI response:', content);
+      console.error('Failed to parse AI response:', content.substring(0, 500) + '...');
       throw new Error('Failed to parse companies data from AI response');
     }
 
