@@ -157,8 +157,21 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         onFocus={() => {
-          if (value.length >= 2 && filteredCities.length > 0) {
-            setIsOpen(true);
+          if (value.length >= 1) {
+            // Ricalcola i filtri al focus
+            const searchTerm = value.toLowerCase();
+            const startsWithFilter = CITIES.filter(city =>
+              city.toLowerCase().startsWith(searchTerm)
+            );
+            const containsFilter = CITIES.filter(city =>
+              city.toLowerCase().includes(searchTerm) && 
+              !city.toLowerCase().startsWith(searchTerm)
+            );
+            const filtered = [...startsWithFilter, ...containsFilter].slice(0, 10);
+            if (filtered.length > 0) {
+              setFilteredCities(filtered);
+              setIsOpen(true);
+            }
           }
         }}
         placeholder={placeholder}
