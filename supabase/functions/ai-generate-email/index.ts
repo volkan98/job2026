@@ -46,11 +46,11 @@ Deno.serve(async (req) => {
 
     console.log('Generating personalized email for:', company.name);
 
-    const aiGatewayUrl = Deno.env.get('AI_GATEWAY_URL');
-    const aiGatewayToken = Deno.env.get('AI_GATEWAY_TOKEN');
+    const aiGatewayUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+    const aiGatewayToken = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!aiGatewayUrl || !aiGatewayToken) {
-      throw new Error('AI Gateway not configured');
+    if (!aiGatewayToken) {
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
     const variantInstructions = {
