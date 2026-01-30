@@ -15,6 +15,7 @@ import {
   Send, 
   RefreshCw, 
   ArrowLeft,
+  ArrowRight,
   Building2,
   AlertTriangle,
   CheckCircle2,
@@ -24,7 +25,10 @@ import {
   User,
   Loader2,
   Sparkles,
-  Ban
+  Ban,
+  Copy,
+  ExternalLink,
+  History
 } from 'lucide-react';
 
 type EmailStyle = 'breve' | 'standard' | 'formale';
@@ -455,7 +459,49 @@ export function EmailComposer() {
                     <div className="flex items-center gap-2 p-3 bg-accent/50 rounded-lg">
                       <Paperclip className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">Allegato:</span>
-                      <Badge variant="outline">CV allegato</Badge>
+                      <Badge variant="outline">CV da allegare manualmente</Badge>
+                    </div>
+
+                    {/* Copy / Mailto buttons */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          const fullEmail = `${currentEmail.corpo}\n\n${currentEmail.firma}`;
+                          navigator.clipboard.writeText(fullEmail);
+                          toast({
+                            title: 'Copiato!',
+                            description: 'Email copiata negli appunti. Incollala nel tuo client.',
+                          });
+                        }}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copia Email
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const subject = encodeURIComponent(currentEmail.oggetto);
+                          const body = encodeURIComponent(`${currentEmail.corpo}\n\n${currentEmail.firma}`);
+                          window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${selectedAzienda?.email}&su=${subject}&body=${body}`, '_blank');
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Apri Gmail
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const subject = encodeURIComponent(currentEmail.oggetto);
+                          const body = encodeURIComponent(`${currentEmail.corpo}\n\n${currentEmail.firma}`);
+                          window.open(`mailto:${selectedAzienda?.email}?subject=${subject}&body=${body}`, '_blank');
+                        }}
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Apri Client Email
+                      </Button>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">
@@ -465,18 +511,62 @@ export function EmailComposer() {
                       </Button>
                       <Button 
                         className="flex-1"
-                        onClick={handleSendEmail}
-                        disabled={!emailProvider || isSending || duplicateWarning?.isDuplicate}
+                        onClick={async () => {
+                          // Mark as sent manually
+                          if (!selectedAzienda?.email || !currentEmail) return;
+                          
+                          setIsSending(true);
+                          try {
+                            await aiAgent.recordSentEmail(
+                              null,
+                              selectedAzienda.nome,
+                              selectedAzienda.email,
+                              currentEmail.oggetto,
+                              currentEmail.corpo,
+                              'manual'
+                            );
+
+                            addLogInvio({
+                              id: Date.now().toString(),
+                              data: new Date(),
+                              destinatario: selectedAzienda.nome,
+                              emailDestinatario: selectedAzienda.email,
+                              oggetto: currentEmail.oggetto,
+                              stato: 'inviato',
+                            });
+
+                            toast({
+                              title: 'Marcato come inviato!',
+                              description: `${selectedAzienda.nome} aggiunto alla lista "Già inviato".`,
+                            });
+                            
+                            // Move to next company
+                            const currentIndex = aziendeSelezionate.findIndex(a => a.id === selectedAziendaId);
+                            if (currentIndex < aziendeSelezionate.length - 1) {
+                              setSelectedAziendaId(aziendeSelezionate[currentIndex + 1].id);
+                              setCurrentEmail(null);
+                            }
+                          } catch (error: any) {
+                            toast({
+                              title: 'Errore',
+                              description: error.message,
+                              variant: 'destructive',
+                            });
+                          } finally {
+                            setIsSending(false);
+                          }
+                        }}
+                        disabled={isSending || duplicateWarning?.isDuplicate}
                       >
                         {isSending ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Invio in corso...
+                            Salvataggio...
                           </>
                         ) : (
                           <>
-                            <Send className="h-4 w-4 mr-2" />
-                            Invia Email
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Marca come Inviato
                           </>
                         )}
                       </Button>
@@ -557,6 +647,11 @@ export function EmailComposer() {
         <Button variant="outline" onClick={() => setCurrentStep(2)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Modifica Aziende
+        </Button>
+        <Button variant="outline" onClick={() => setCurrentStep(4)}>
+          <History className="h-4 w-4 mr-2" />
+          Vedi Già Inviato
+          <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
     </div>

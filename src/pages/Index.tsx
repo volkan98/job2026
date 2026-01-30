@@ -7,6 +7,7 @@ import { CVUploader } from '@/components/cv/CVUploader';
 import { CVSummary } from '@/components/cv/CVSummary';
 import { CompanySearch } from '@/components/companies/CompanySearch';
 import { EmailComposer } from '@/components/email/EmailComposer';
+import { SentEmailsHistory } from '@/components/email/SentEmailsHistory';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function MainContent() {
@@ -21,6 +22,8 @@ function MainContent() {
       return <CompanySearch />;
     case 3:
       return <EmailComposer />;
+    case 4:
+      return <SentEmailsHistory />;
     default:
       return <CVUploader />;
   }

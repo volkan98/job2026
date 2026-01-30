@@ -269,11 +269,11 @@ export function CompanySearch() {
       {/* Results */}
       {hasSearched && (
         <>
-          <Alert className="bg-amber-500/10 border-amber-500/30">
+      <Alert className="bg-amber-500/10 border-amber-500/30">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-sm">
-              <strong>Nota:</strong> I risultati sono generati dall'AI basandosi su dati pubblici. 
-              Verifica sempre le informazioni di contatto prima di inviare.
+              <strong>Fonti gratuite:</strong> I risultati sono basati su directory pubbliche (local.ch, Pagine Gialle, siti aziendali). 
+              L'AI suggerisce aziende realistiche - verifica sempre le email sui siti ufficiali prima di inviare.
             </AlertDescription>
           </Alert>
 
