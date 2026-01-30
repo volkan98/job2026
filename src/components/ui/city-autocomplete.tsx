@@ -3,10 +3,32 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { MapPin } from 'lucide-react';
 
-interface CityData {
+export interface CityData {
   name: string;
   region: string;
   country: string;
+}
+
+export interface LocationSelection {
+  type: 'city' | 'region';
+  displayName: string;
+  searchQuery: string; // Cosa mandare all'AI
+  cities?: string[]; // Se regione, lista città
+}
+
+// Funzione per ottenere tutte le città di una regione
+export function getCitiesInRegion(region: string): string[] {
+  return CITIES_DATA
+    .filter(c => c.region.toLowerCase() === region.toLowerCase())
+    .map(c => c.name);
+}
+
+// Funzione per costruire la query di ricerca
+export function buildLocationQuery(selection: LocationSelection): string {
+  if (selection.type === 'region' && selection.cities && selection.cities.length > 0) {
+    return `Regione ${selection.displayName} (tutte le città: ${selection.cities.slice(0, 5).join(', ')}${selection.cities.length > 5 ? ' e altre...' : ''})`;
+  }
+  return selection.displayName;
 }
 
 // Lista città con regione/cantone
@@ -268,16 +290,28 @@ const CITIES_DATA: CityData[] = [
   { name: 'Crotone', region: 'Calabria', country: 'IT' },
 ];
 
+// Ottieni lista regioni uniche
+const REGIONS = [...new Set(CITIES_DATA.map(c => c.region))];
+
+interface AutocompleteItem {
+  type: 'city' | 'region';
+  city?: CityData;
+  region?: string;
+  country?: string;
+  citiesCount?: number;
+}
+
 interface CityAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
+  onLocationSelect?: (selection: LocationSelection) => void;
   placeholder?: string;
   className?: string;
 }
 
-export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città...', className }: CityAutocompleteProps) {
+export function CityAutocomplete({ value, onChange, onLocationSelect, placeholder = 'Cerca città o regione...', className }: CityAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [filteredCities, setFilteredCities] = useState<CityData[]>([]);
+  const [filteredItems, setFilteredItems] = useState<AutocompleteItem[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -293,20 +327,40 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filterCities = (searchTerm: string): CityData[] => {
+  const filterItems = (searchTerm: string): AutocompleteItem[] => {
     const term = searchTerm.toLowerCase();
-    // Prima le città che iniziano con il termine
+    const items: AutocompleteItem[] = [];
+    
+    // Prima cerca regioni che matchano
+    const matchingRegions = REGIONS.filter(region => 
+      region.toLowerCase().startsWith(term) || region.toLowerCase().includes(term)
+    );
+    
+    matchingRegions.forEach(region => {
+      const citiesInRegion = CITIES_DATA.filter(c => c.region === region);
+      const country = citiesInRegion[0]?.country || 'IT';
+      items.push({
+        type: 'region',
+        region,
+        country,
+        citiesCount: citiesInRegion.length
+      });
+    });
+    
+    // Poi aggiungi città che matchano
     const startsWithFilter = CITIES_DATA.filter(city =>
-      city.name.toLowerCase().startsWith(term) ||
-      city.region.toLowerCase().startsWith(term)
+      city.name.toLowerCase().startsWith(term)
     );
-    // Poi quelle che lo contengono
     const containsFilter = CITIES_DATA.filter(city =>
-      (city.name.toLowerCase().includes(term) || city.region.toLowerCase().includes(term)) &&
-      !city.name.toLowerCase().startsWith(term) &&
-      !city.region.toLowerCase().startsWith(term)
+      city.name.toLowerCase().includes(term) &&
+      !city.name.toLowerCase().startsWith(term)
     );
-    return [...startsWithFilter, ...containsFilter].slice(0, 10);
+    
+    [...startsWithFilter, ...containsFilter].forEach(city => {
+      items.push({ type: 'city', city });
+    });
+    
+    return items.slice(0, 12);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -314,20 +368,44 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
     onChange(inputValue);
 
     if (inputValue.length >= 1) {
-      const filtered = filterCities(inputValue);
-      setFilteredCities(filtered);
+      const filtered = filterItems(inputValue);
+      setFilteredItems(filtered);
       setIsOpen(filtered.length > 0);
       setHighlightedIndex(-1);
     } else {
-      setFilteredCities([]);
+      setFilteredItems([]);
       setIsOpen(false);
     }
   };
 
-  const handleSelect = (city: CityData) => {
-    onChange(city.name);
+  const handleSelect = (item: AutocompleteItem) => {
+    if (item.type === 'region' && item.region) {
+      const cities = getCitiesInRegion(item.region);
+      const displayName = `${item.region} (tutta la regione)`;
+      onChange(displayName);
+      
+      if (onLocationSelect) {
+        onLocationSelect({
+          type: 'region',
+          displayName: item.region,
+          searchQuery: `Tutta la regione/cantone ${item.region}`,
+          cities
+        });
+      }
+    } else if (item.type === 'city' && item.city) {
+      onChange(item.city.name);
+      
+      if (onLocationSelect) {
+        onLocationSelect({
+          type: 'city',
+          displayName: item.city.name,
+          searchQuery: item.city.name
+        });
+      }
+    }
+    
     setIsOpen(false);
-    setFilteredCities([]);
+    setFilteredItems([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -336,14 +414,14 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlightedIndex(prev => 
-        prev < filteredCities.length - 1 ? prev + 1 : prev
+        prev < filteredItems.length - 1 ? prev + 1 : prev
       );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlightedIndex(prev => prev > 0 ? prev - 1 : prev);
     } else if (e.key === 'Enter' && highlightedIndex >= 0) {
       e.preventDefault();
-      handleSelect(filteredCities[highlightedIndex]);
+      handleSelect(filteredItems[highlightedIndex]);
     } else if (e.key === 'Escape') {
       setIsOpen(false);
     }
@@ -358,9 +436,9 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
         onKeyDown={handleKeyDown}
         onFocus={() => {
           if (value.length >= 1) {
-            const filtered = filterCities(value);
+            const filtered = filterItems(value);
             if (filtered.length > 0) {
-              setFilteredCities(filtered);
+              setFilteredItems(filtered);
               setIsOpen(true);
             }
           }
@@ -369,12 +447,12 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
         autoComplete="off"
       />
       
-      {isOpen && filteredCities.length > 0 && (
+      {isOpen && filteredItems.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-          {filteredCities.map((city, index) => (
+          {filteredItems.map((item, index) => (
             <div
-              key={`${city.name}-${city.region}`}
-              onClick={() => handleSelect(city)}
+              key={item.type === 'region' ? `region-${item.region}` : `city-${item.city?.name}-${item.city?.region}`}
+              onClick={() => handleSelect(item)}
               className={cn(
                 'flex items-center gap-2 px-3 py-2 cursor-pointer text-popover-foreground',
                 'hover:bg-accent hover:text-accent-foreground',
@@ -382,12 +460,21 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
               )}
             >
               <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <div className="flex flex-col">
-                <span className="font-medium">{city.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {city.region}, {city.country === 'CH' ? 'Svizzera' : 'Italia'}
-                </span>
-              </div>
+              {item.type === 'region' ? (
+                <div className="flex flex-col">
+                  <span className="font-medium">{item.region} <span className="text-primary">(tutta la regione)</span></span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.citiesCount} città • {item.country === 'CH' ? 'Svizzera' : 'Italia'}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  <span className="font-medium">{item.city?.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.city?.region}, {item.city?.country === 'CH' ? 'Svizzera' : 'Italia'}
+                  </span>
+                </div>
+              )}
             </div>
           ))}
         </div>
