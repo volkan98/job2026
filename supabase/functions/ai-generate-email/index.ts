@@ -87,10 +87,20 @@ REGOLE IMPORTANTI:
 4. Tono professionale svizzero: diretto, chiaro, educato
 5. Includi sempre i contatti nella firma
 
+FORMATTAZIONE GRASSETTO (usa **parola** per il grassetto):
+- Evidenzia in grassetto SOLO le seguenti parole chiave quando appaiono nel testo:
+  * Il ruolo/posizione cercata (es. **Magazziniere**, **Autista**)
+  * Competenze principali e tecniche specifiche
+  * Anni di esperienza (es. **5 anni di esperienza**)
+  * Disponibilità (es. **disponibilità immediata**)
+  * Mansioni operative chiave (es. **gestione magazzino**, **guida mezzi pesanti**)
+- Usa il grassetto in modo moderato e professionale (max 5-7 elementi per email)
+- NON mettere in grassetto frasi intere, solo parole/espressioni chiave
+
 Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
 {
   "oggetto": "Oggetto dell'email",
-  "corpo": "Corpo completo dell'email",
+  "corpo": "Corpo completo dell'email con parole chiave in **grassetto**",
   "firma": "Firma con contatti",
   "matchPoints": ["punto1", "punto2", "punto3"]
 }`;
