@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
       throw new Error('AI Gateway not configured');
     }
 
-    const prompt = `Sei un agente di ricerca lavoro. Genera una lista di aziende REALI nella zona specificata che potrebbero essere rilevanti per una candidatura.
+    const prompt = `Sei un agente di ricerca lavoro svizzero/italiano. Genera una lista di aziende REALI nella zona specificata che potrebbero essere rilevanti per una candidatura.
 
 ZONA DI RICERCA:
 - Località: ${location}
@@ -47,17 +47,22 @@ ${keywords.map(k => `- ${k}`).join('\n')}
 ${cvSkills ? `COMPETENZE DEL CANDIDATO:\n${cvSkills.map(s => `- ${s}`).join('\n')}` : ''}
 ${targetRole ? `RUOLO TARGET: ${targetRole}` : ''}
 
-ISTRUZIONI:
-1. Genera 8-12 aziende PLAUSIBILI per questa zona e settore
-2. Per ogni azienda includi informazioni realistiche
-3. Se conosci l'email pubblica reale (info@, hr@, jobs@), includila
-4. Se non sei sicuro dell'email, metti null
-5. Calcola un match_score (0-100) basato su: settore + competenze + località
+FONTI DA CONSIDERARE (directory pubbliche gratuite):
+- local.ch, search.ch (Svizzera)
+- Pagine Gialle / Pagine Bianche (Italia)
+- Siti ufficiali aziendali
+- Camere di commercio locali
+- Registri imprese pubblici
 
-IMPORTANTE: 
-- Genera SOLO aziende che potrebbero esistere realmente in quella zona
-- NON inventare email se non sei sicuro
-- Indica sempre la fonte se disponibile
+ISTRUZIONI:
+1. Genera 8-12 aziende REALISTICHE per questa zona e settore
+2. Per ogni azienda suggerisci dove l'utente può verificare i dati (sito ufficiale, local.ch, etc.)
+3. Per le email:
+   - Se conosci con certezza l'email pubblica, includila
+   - Se non sei sicuro, metti null e indica "verificare su sito ufficiale"
+   - Preferisci: jobs@ / hr@ / recruiting@ se disponibili, altrimenti info@
+4. NON INVENTARE email - meglio null che un'email falsa
+5. Indica sempre la fonte suggerita per verifica
 
 Rispondi SOLO con un array JSON valido (senza markdown, senza backticks):
 [
@@ -69,10 +74,11 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks):
     "website": "https://www.esempio.ch",
     "email": "info@esempio.ch o null",
     "phone": "+41 XX XXX XX XX o null",
-    "contact_type": "generic|hr|jobs|recruitment",
-    "source": "Fonte dove trovare info (es. sito aziendale, registro imprese)",
+    "contact_type": "generic|hr|jobs|form_only|phone_only",
+    "source": "Fonte: local.ch / sito ufficiale / registro imprese",
     "match_score": 85,
-    "match_reasons": ["motivo1", "motivo2"]
+    "match_reasons": ["motivo1", "motivo2"],
+    "verification_note": "Verificare email su pagina Contatti del sito ufficiale"
   }
 ]`;
 
