@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CityAutocomplete } from '@/components/ui/city-autocomplete';
 import { 
   User, 
   MapPin, 
@@ -172,9 +173,10 @@ export function CVSummary() {
                 <label className="text-sm font-medium text-foreground flex items-center gap-2">
                   <MapPin className="h-4 w-4" /> Città
                 </label>
-                <Input
+                <CityAutocomplete
                   value={editedData.citta}
-                  onChange={e => setEditedData({ ...editedData, citta: e.target.value })}
+                  onChange={(value) => setEditedData({ ...editedData, citta: value })}
+                  placeholder="Cerca città (es. Lugano)..."
                   className="mt-1"
                 />
               </div>
