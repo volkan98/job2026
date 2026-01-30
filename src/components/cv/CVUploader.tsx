@@ -7,6 +7,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCVContext } from '@/contexts/CVContext';
 import { aiAgent } from '@/lib/api/ai-agent';
 import { useToast } from '@/hooks/use-toast';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set the worker source for pdf.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
 
 export function CVUploader() {
   const { setCvFile, setCvData, setSintesiBreve, setSintesiCompleta, setCurrentStep } = useCVContext();
@@ -71,28 +75,56 @@ export function CVUploader() {
     setError(null);
   };
 
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        fullText += pageText + '\n\n';
+      }
+      
+      return fullText.trim();
+    } catch (error) {
+      console.error('Error extracting PDF text:', error);
+      return '';
+    }
+  };
+
   const extractTextFromFile = async (file: File): Promise<string> => {
     // For text files, read directly
     if (file.type === 'text/plain') {
       return await file.text();
     }
     
-    // For PDF/DOCX, we'll read as text (simplified - in production use proper parsing)
-    // The AI model can still extract useful info from partial text
-    const text = await file.text().catch(() => '');
-    
-    // If we can't read it as text, use file name and type as context
-    if (!text || text.length < 50) {
-      return `[File CV caricato: ${file.name}, tipo: ${file.type}]
-      
-Per favore analizza il CV e genera dati di esempio realistici basati su:
-- Un professionista nel settore industriale/manifatturiero
-- Esperienza in produzione, controllo qualità o logistica
-- Competenze tecniche e gestionali
-- Località: Lombardia/Ticino`;
+    // For PDF files, use pdf.js to extract text
+    if (file.type === 'application/pdf') {
+      const pdfText = await extractTextFromPDF(file);
+      if (pdfText && pdfText.length > 50) {
+        console.log('Extracted PDF text length:', pdfText.length);
+        return pdfText.substring(0, 15000); // Limit text length
+      }
     }
     
-    return text.substring(0, 15000); // Limit text length
+    // For DOCX, try to read as text (basic extraction)
+    if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      // DOCX is a zip file, we'll try to extract basic text
+      const text = await file.text().catch(() => '');
+      // Extract text between XML tags
+      const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (cleanText.length > 50) {
+        return cleanText.substring(0, 15000);
+      }
+    }
+    
+    // Fallback: ask user to provide text or use filename as context
+    throw new Error('Impossibile estrarre il testo dal file. Prova con un file PDF o TXT.');
   };
 
   const handleAnalyze = async () => {
