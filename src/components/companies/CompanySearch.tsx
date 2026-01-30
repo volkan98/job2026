@@ -4,7 +4,7 @@ import { aiAgent, Company } from '@/lib/api/ai-agent';
 import { Azienda } from '@/types/cv';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { CityAutocomplete } from '@/components/ui/city-autocomplete';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -192,10 +192,10 @@ export function CompanySearch() {
               <label className="text-sm font-medium text-foreground flex items-center gap-2 mb-2">
                 <MapPin className="h-4 w-4" /> Zona / Città
               </label>
-              <Input
+              <CityAutocomplete
                 placeholder="es. Lugano, Milano, Bergamo..."
                 value={searchLocation}
-                onChange={e => setSearchLocation(e.target.value)}
+                onChange={setSearchLocation}
               />
             </div>
             
