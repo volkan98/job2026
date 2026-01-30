@@ -85,13 +85,31 @@ ISTRUZIONI CRITICHE - RICERCA PROFONDA:
 7. Includi il sito web quando possibile
 8. Varia i tipi di azienda: grandi gruppi, medie imprese, piccole aziende, studi, cooperative
 
-CALCOLO DISTANZA E TEMPO DI PERCORRENZA OBBLIGATORIO:
+CALCOLO DISTANZA E TEMPO DI PERCORRENZA - STIMA REALISTICA OBBLIGATORIA:
 - Calcola la distanza approssimativa in km da "${originCity}" per OGNI azienda
-- Calcola il tempo di percorrenza stimato IN AUTO per ogni azienda
-- Usa una stima realistica basata sulla distanza stradale/geografica tra le città
-- Il tempo deve considerare: tipo di strada (autostrada ~100km/h, statale ~60km/h, urbana ~40km/h)
-- Formato tempo: "X min" per meno di 1 ora, "Xh Ymin" per più di 1 ora (es. "15 min", "45 min", "1h 20min")
-- Ordina mentalmente le aziende dal tempo di percorrenza più breve al più lungo
+- Calcola il tempo di percorrenza IN AUTO con STIMA REALISTICA, NON teorica
+
+FATTORI DA CONSIDERARE PER IL TEMPO:
+1. Tipologia strade: strade di montagna, tornanti, statali strette = più lente
+2. Passaggi di confine Italia-Svizzera: aggiungi 5-15 min per code e controlli
+3. Zone urbane congestionate: ingresso città come Lugano, Como = rallentamenti
+4. Orari di punta (mattino 7-9, sera 17-19): considera traffico medio
+5. Strade reali, non linea d'aria: es. Laino-Lugano sono ~25km ma 30-45 min reali
+
+REGOLE TEMPO:
+- NON usare formule teoriche tipo "km/velocità"
+- Preferisci stime PRUDENTI, non ottimistiche
+- Se c'è incertezza, arrotonda PER ECCESSO
+- Usa intervalli quando appropriato: "30-40 min", "circa 35 min"
+- Formato: "X min" oppure "Xh Ymin" (es. "35-45 min", "circa 40 min", "1h 15min")
+
+ESEMPI REALISTICI da "${originCity}":
+- Destinazione a 5km stesso comune: "8-12 min"
+- Destinazione a 15km zona collinare: "20-30 min"  
+- Destinazione a 25km con confine CH: "35-45 min"
+- Destinazione a 40km autostrada: "40-50 min"
+
+- Ordina le aziende dal tempo di percorrenza più breve al più lungo
 - La distanza deve essere un numero intero realistico (es. 5, 12, 23, 45 km)
 
 DIVERSIFICA LE TIPOLOGIE:
