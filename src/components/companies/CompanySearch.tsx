@@ -4,7 +4,7 @@ import { aiAgent, Company } from '@/lib/api/ai-agent';
 import { Azienda } from '@/types/cv';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { CityAutocomplete } from '@/components/ui/city-autocomplete';
+import { CityAutocomplete, LocationSelection } from '@/components/ui/city-autocomplete';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -56,6 +56,7 @@ export function CompanySearch() {
   const { cvData, aziendeSelezionate, setAziendeSelezionate, setCurrentStep } = useCVContext();
   const { toast } = useToast();
   const [searchLocation, setSearchLocation] = useState(cvData?.citta || '');
+  const [locationSelection, setLocationSelection] = useState<LocationSelection | null>(null);
   const [searchRadius, setSearchRadius] = useState('30');
   const [selectedSector, setSelectedSector] = useState('Tutti i settori');
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
@@ -88,11 +89,14 @@ export function CompanySearch() {
         ? [selectedSector.toLowerCase()] 
         : ['produzione', 'industria'];
 
+    // Usa la query della selezione se disponibile (include regione completa)
+    const locationQuery = locationSelection?.searchQuery || searchLocation;
+
     setIsSearching(true);
     
     try {
       const result = await aiAgent.searchCompanies(
-        searchLocation,
+        locationQuery,
         parseInt(searchRadius),
         keywords,
         cvData?.competenze,
@@ -193,9 +197,10 @@ export function CompanySearch() {
                 <MapPin className="h-4 w-4" /> Zona / Città
               </label>
               <CityAutocomplete
-                placeholder="es. Lugano, Milano, Bergamo..."
+                placeholder="es. Lugano, Ticino, Lombardia..."
                 value={searchLocation}
                 onChange={setSearchLocation}
+                onLocationSelect={setLocationSelection}
               />
             </div>
             
