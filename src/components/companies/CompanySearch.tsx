@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
 import { aiAgent, Company } from '@/lib/api/ai-agent';
 import { Azienda } from '@/types/cv';
@@ -25,9 +25,22 @@ import {
   XCircle,
   Loader2,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Star,
+  StarOff
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface SavedSearchPreferences {
+  searchLocation: string;
+  locationSelection: LocationSelection | null;
+  searchRadius: string;
+  minResults: string;
+  selectedKeywords: string[];
+  showOnlyWithEmail: boolean;
+}
+
+const STORAGE_KEY = 'search_preferences';
 
 const SETTORI = [
   'Tutti i settori',
@@ -66,6 +79,60 @@ export function CompanySearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [originCity, setOriginCity] = useState(cvData?.citta || '');
+  const [hasSavedPreferences, setHasSavedPreferences] = useState(false);
+
+  // Controlla se ci sono preferenze salvate
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    setHasSavedPreferences(!!saved);
+  }, []);
+
+  const savePreferences = () => {
+    const prefs: SavedSearchPreferences = {
+      searchLocation,
+      locationSelection,
+      searchRadius,
+      minResults,
+      selectedKeywords,
+      showOnlyWithEmail,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    setHasSavedPreferences(true);
+    toast({
+      title: '⭐ Preferenze salvate',
+      description: 'I tuoi parametri di ricerca sono stati salvati.',
+    });
+  };
+
+  const loadPreferences = () => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const prefs: SavedSearchPreferences = JSON.parse(saved);
+        setSearchLocation(prefs.searchLocation || '');
+        setLocationSelection(prefs.locationSelection || null);
+        setSearchRadius(prefs.searchRadius || '30');
+        setMinResults(prefs.minResults || '30');
+        setSelectedKeywords(prefs.selectedKeywords || []);
+        setShowOnlyWithEmail(prefs.showOnlyWithEmail || false);
+        toast({
+          title: '✅ Preferenze caricate',
+          description: 'I parametri della tua ultima ricerca sono stati ripristinati.',
+        });
+      } catch (e) {
+        console.error('Error loading preferences:', e);
+      }
+    }
+  };
+
+  const clearPreferences = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setHasSavedPreferences(false);
+    toast({
+      title: 'Preferenze rimosse',
+      description: 'I parametri salvati sono stati cancellati.',
+    });
+  };
 
   const toggleKeyword = (keyword: string) => {
     if (selectedKeywords.includes(keyword)) {
@@ -290,6 +357,26 @@ export function CompanySearch() {
               </label>
             </div>
             
+            <div className="flex gap-2 flex-wrap">
+              {hasSavedPreferences && (
+                <Button variant="outline" size="sm" onClick={loadPreferences}>
+                  <Star className="h-4 w-4 mr-2 text-amber-500 fill-amber-500" />
+                  Carica preferiti
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={savePreferences}>
+                <Star className="h-4 w-4 mr-2" />
+                Salva preferiti
+              </Button>
+              {hasSavedPreferences && (
+                <Button variant="ghost" size="sm" onClick={clearPreferences}>
+                  <StarOff className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex justify-end pt-2">
             <Button onClick={handleSearch} disabled={isSearching || !searchLocation}>
               {isSearching ? (
                 <>
