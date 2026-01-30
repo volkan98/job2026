@@ -87,36 +87,44 @@ REGOLE IMPORTANTI:
 4. Tono professionale svizzero: diretto, chiaro, educato
 5. Includi sempre i contatti nella firma
 
-FORMATTAZIONE HTML - REGOLE CRITICHE:
-- Il corpo email DEVE essere in formato HTML email-ready
-- NON usare MAI asterischi ** o sintassi Markdown
-- NON usare MAIUSCOLE per evidenziare
-- USA ESCLUSIVAMENTE tag HTML per il grassetto: <b>testo</b> oppure <strong>testo</strong>
+FORMATTAZIONE - REGOLE CRITICHE PER MAILTO:
+- L'email sarà inviata tramite mailto: quindi DEVE essere SOLO TESTO SEMPLICE
+- NON usare MAI: asterischi **, HTML (<b>, <strong>), caratteri speciali
+- Il testo deve essere PULITO e compatibile con qualsiasi client email
 
-PAROLE/FRASI DA METTERE IN GRASSETTO con <b></b>:
-- Ruolo professionale: es. <b>verniciatore industriale</b>, <b>magazziniere</b>
-- Competenze chiave: es. <b>verniciatura industriale</b>, <b>preparazione superfici</b>
-- Anni di esperienza: es. <b>oltre 5 anni di esperienza</b>
-- Qualità distintive: es. <b>controllo qualità</b>, <b>norme di sicurezza</b>
-- Disponibilità: es. <b>disponibilità immediata</b>
-- Nome candidato nella firma: es. <b>${cvData.nome} ${cvData.cognome}</b>
+EVIDENZIAZIONE INFORMAZIONI CHIAVE:
+Per permettere a recruiter e responsabili di produzione di capire i punti chiave in pochi secondi,
+evidenzia le informazioni più importanti usando UNO di questi metodi (scegli quello più naturale nel contesto):
+- MAIUSCOLO MODERATO: per 3-5 parole/espressioni chiave nell'intera email
+- [Parentesi quadre]: per informazioni tecniche specifiche
 
-ESEMPIO CORPO EMAIL CORRETTO:
+COSA EVIDENZIARE (scegli 4-6 elementi tra questi):
+- Ruolo proposto: es. "come VERNICIATORE INDUSTRIALE" oppure "per la posizione di [verniciatore industriale]"
+- Competenze tecniche: es. "competenze in VERNICIATURA INDUSTRIALE" o "[verniciatura a spruzzo]"
+- Attività operative: es. "PREPARAZIONE SUPERFICI" o "[controllo qualità prodotto finito]"
+- Esperienza: es. "con OLTRE 5 ANNI di esperienza"
+- Disponibilità: es. "DISPONIBILITÀ IMMEDIATA" 
+- Qualità professionali: es. "attenzione a PRECISIONE e SICUREZZA"
+
+ESEMPIO CORPO EMAIL:
 "Gentile Responsabile,
 
-mi permetto di contattarVi per proporre la mia candidatura come <b>verniciatore industriale</b>.
+mi permetto di contattarVi per proporre la mia candidatura come VERNICIATORE INDUSTRIALE.
 
-Ho maturato <b>oltre 5 anni di esperienza</b> nella <b>verniciatura industriale</b> di superfici metalliche, con competenze specifiche in <b>preparazione superfici</b> e <b>controllo qualità</b>.
+Ho maturato oltre 5 anni di esperienza nella verniciatura industriale di superfici metalliche, 
+con competenze specifiche in [preparazione superfici], [verniciatura a spruzzo] e CONTROLLO QUALITÀ.
 
-Sono disponibile con <b>disponibilità immediata</b> e resto a disposizione per un colloquio conoscitivo.
+Sono abituato a lavorare nel rispetto delle norme di sicurezza e delle tempistiche produttive.
+
+Sono disponibile con DISPONIBILITÀ IMMEDIATA e resto a disposizione per un colloquio conoscitivo.
 
 Cordiali saluti"
 
 Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
 {
-  "oggetto": "Oggetto dell'email (testo semplice senza HTML)",
-  "corpo": "Corpo HTML con tag <b> per il grassetto",
-  "firma": "Firma con contatti (può contenere <b> per il nome)",
+  "oggetto": "Oggetto email (testo semplice)",
+  "corpo": "Corpo email (testo semplice con evidenziazioni MAIUSCOLO o [parentesi])",
+  "firma": "Firma con contatti",
   "matchPoints": ["punto1", "punto2", "punto3"]
 }`;
 
@@ -161,39 +169,36 @@ Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
       }
       emailData = JSON.parse(jsonStr);
       
-      // Pulizia: rimuovi asterischi Markdown residui
-      if (emailData.corpo) {
-        emailData.corpo = emailData.corpo.replace(/\*\*/g, '');
-      }
+      // Pulizia: rimuovi formattazioni non compatibili con mailto
+      const cleanForMailto = (text: string) => {
+        if (!text) return text;
+        return text
+          .replace(/\*\*/g, '')           // Rimuovi Markdown
+          .replace(/<\/?b>/gi, '')         // Rimuovi tag HTML <b>
+          .replace(/<\/?strong>/gi, '')    // Rimuovi tag HTML <strong>
+          .replace(/<\/?[^>]+(>|$)/g, ''); // Rimuovi qualsiasi altro tag HTML
+      };
+      
+      // Pulisci oggetto (non deve avere formattazioni)
       if (emailData.oggetto) {
-        emailData.oggetto = emailData.oggetto.replace(/\*\*/g, '');
-      }
-      if (emailData.firma) {
-        emailData.firma = emailData.firma.replace(/\*\*/g, '');
+        emailData.oggetto = cleanForMailto(emailData.oggetto);
       }
       
-      // Verifica che il corpo contenga tag HTML per grassetto
-      // Se non contiene <b> o <strong>, converti parole chiave comuni
-      if (emailData.corpo && !emailData.corpo.includes('<b>') && !emailData.corpo.includes('<strong>')) {
-        console.log('No HTML bold tags found, adding them automatically');
-        const keywordsToHighlight = [
-          'verniciatura industriale',
-          'verniciatore industriale',
-          'preparazione superfici',
-          'controllo qualità',
-          'disponibilità immediata',
-          'esperienza',
-          'competenze',
-          'vernici',
-          'superfici metalliche'
-        ];
-        
-        let corpo = emailData.corpo;
-        keywordsToHighlight.forEach(keyword => {
-          const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
-          corpo = corpo.replace(regex, '<b>$1</b>');
-        });
-        emailData.corpo = corpo;
+      // Il corpo può mantenere MAIUSCOLO e [parentesi] ma non HTML/Markdown
+      if (emailData.corpo) {
+        emailData.corpo = emailData.corpo
+          .replace(/\*\*/g, '')
+          .replace(/<\/?b>/gi, '')
+          .replace(/<\/?strong>/gi, '')
+          .replace(/<\/?[^>]+(>|$)/g, '');
+      }
+      
+      if (emailData.firma) {
+        emailData.firma = emailData.firma
+          .replace(/\*\*/g, '')
+          .replace(/<\/?b>/gi, '')
+          .replace(/<\/?strong>/gi, '')
+          .replace(/<\/?[^>]+(>|$)/g, '');
       }
       
     } catch (parseError) {
