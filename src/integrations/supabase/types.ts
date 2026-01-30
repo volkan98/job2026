@@ -166,6 +166,7 @@ export type Database = {
           cap: string | null
           city: string | null
           created_at: string
+          cv_file_path: string | null
           cv_full_summary: string | null
           cv_short_summary: string | null
           email: string | null
@@ -186,6 +187,7 @@ export type Database = {
           cap?: string | null
           city?: string | null
           created_at?: string
+          cv_file_path?: string | null
           cv_full_summary?: string | null
           cv_short_summary?: string | null
           email?: string | null
@@ -206,6 +208,7 @@ export type Database = {
           cap?: string | null
           city?: string | null
           created_at?: string
+          cv_file_path?: string | null
           cv_full_summary?: string | null
           cv_short_summary?: string | null
           email?: string | null
