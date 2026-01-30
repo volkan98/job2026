@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
+import { aiAgent, Company } from '@/lib/api/ai-agent';
 import { Azienda } from '@/types/cv';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Search, 
   MapPin, 
@@ -20,8 +22,12 @@ import {
   ArrowRight,
   Filter,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Loader2,
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const SETTORI = [
   'Tutti i settori',
@@ -36,87 +42,97 @@ const SETTORI = [
   'Tessile',
 ];
 
-// Mock data - will be replaced with real API
-const mockAziende: Azienda[] = [
-  {
-    id: '1',
-    nome: 'Industrie Meccaniche Bergamasche SpA',
-    indirizzo: 'Via dell\'Industria 45',
-    citta: 'Bergamo',
-    sito: 'www.imbergamo.it',
-    email: 'info@imbergamo.it',
-    telefono: '+39 035 123456',
-    settore: 'Metalmeccanico',
-    fonte: 'Sito aziendale',
-    distanza: 5,
-  },
-  {
-    id: '2',
-    nome: 'PackItalia Srl',
-    indirizzo: 'Via Roma 120',
-    citta: 'Brescia',
-    sito: 'www.packitalia.com',
-    email: 'hr@packitalia.com',
-    telefono: '+39 030 987654',
-    settore: 'Packaging',
-    fonte: 'LinkedIn',
-    distanza: 12,
-  },
-  {
-    id: '3',
-    nome: 'FarmaTech Industries',
-    indirizzo: 'Via della Scienza 8',
-    citta: 'Milano',
-    sito: 'www.farmatech.it',
-    email: null,
-    telefono: '+39 02 555666',
-    settore: 'Farmaceutico',
-    fonte: 'Camera di Commercio',
-    distanza: 25,
-  },
-  {
-    id: '4',
-    nome: 'LogiNord Trasporti',
-    indirizzo: 'Via Logistica 200',
-    citta: 'Monza',
-    sito: 'www.loginord.it',
-    email: 'lavoro@loginord.it',
-    telefono: '+39 039 444555',
-    settore: 'Logistica',
-    fonte: 'Sito aziendale',
-    distanza: 18,
-  },
-  {
-    id: '5',
-    nome: 'Verniciature Industriali Lombarde',
-    indirizzo: 'Via Artigiani 67',
-    citta: 'Bergamo',
-    sito: 'www.villombarde.it',
-    email: 'info@villombarde.it',
-    telefono: '+39 035 777888',
-    settore: 'Verniciatura',
-    fonte: 'Pagine Gialle',
-    distanza: 8,
-  },
+const KEYWORDS = [
+  { id: 'produzione', label: 'Produzione' },
+  { id: 'metalmeccanica', label: 'Metalmeccanica' },
+  { id: 'packaging', label: 'Packaging' },
+  { id: 'farmaceutico', label: 'Farmaceutico' },
+  { id: 'logistica', label: 'Logistica' },
+  { id: 'verniciatura', label: 'Verniciatura' },
+  { id: 'alimentare', label: 'Alimentare' },
 ];
 
 export function CompanySearch() {
   const { cvData, aziendeSelezionate, setAziendeSelezionate, setCurrentStep } = useCVContext();
+  const { toast } = useToast();
   const [searchLocation, setSearchLocation] = useState(cvData?.citta || '');
   const [searchRadius, setSearchRadius] = useState('30');
   const [selectedSector, setSelectedSector] = useState('Tutti i settori');
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [showOnlyWithEmail, setShowOnlyWithEmail] = useState(false);
   const [aziende, setAziende] = useState<Azienda[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  const toggleKeyword = (keyword: string) => {
+    if (selectedKeywords.includes(keyword)) {
+      setSelectedKeywords(selectedKeywords.filter(k => k !== keyword));
+    } else {
+      setSelectedKeywords([...selectedKeywords, keyword]);
+    }
+  };
+
   const handleSearch = async () => {
+    if (!searchLocation) {
+      toast({
+        title: 'Errore',
+        description: 'Inserisci una località per la ricerca.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const keywords = selectedKeywords.length > 0 
+      ? selectedKeywords 
+      : selectedSector !== 'Tutti i settori' 
+        ? [selectedSector.toLowerCase()] 
+        : ['produzione', 'industria'];
+
     setIsSearching(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setAziende(mockAziende);
-    setHasSearched(true);
-    setIsSearching(false);
+    
+    try {
+      const result = await aiAgent.searchCompanies(
+        searchLocation,
+        parseInt(searchRadius),
+        keywords,
+        cvData?.competenze,
+        undefined
+      );
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Errore nella ricerca');
+      }
+
+      const mappedAziende: Azienda[] = result.data.map((company: Company, index: number) => ({
+        id: String(index + 1),
+        nome: company.name,
+        indirizzo: company.address || '',
+        citta: company.city || searchLocation,
+        sito: company.website || '',
+        email: company.email || null,
+        telefono: company.phone || '',
+        settore: company.sector || 'Altro',
+        fonte: company.source || 'AI Search',
+        distanza: Math.floor(Math.random() * parseInt(searchRadius)),
+      }));
+
+      setAziende(mappedAziende);
+      setHasSearched(true);
+      
+      toast({
+        title: 'Ricerca completata!',
+        description: `Trovate ${mappedAziende.length} aziende nella zona.`,
+      });
+    } catch (error: any) {
+      console.error('Search error:', error);
+      toast({
+        title: 'Errore nella ricerca',
+        description: error.message || 'Impossibile completare la ricerca. Riprova.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const filteredAziende = aziende.filter(az => {
@@ -146,36 +162,38 @@ export function CompanySearch() {
       a.nome, a.indirizzo, a.citta, a.email || '', a.telefono, a.settore, a.sito, a.fonte
     ]);
     
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'aziende.csv';
+    a.download = `aziende_${searchLocation}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-          Trova Aziende
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground flex items-center justify-center gap-2">
+          <Sparkles className="h-6 w-6 text-primary" />
+          AI Agent - Trova Aziende
         </h2>
-        <p className="text-muted">
-          Cerca aziende nella tua zona e seleziona quelle a cui candidarti
+        <p className="text-muted-foreground">
+          L'AI cerca aziende nella tua zona e trova contatti email pubblici
         </p>
       </div>
 
       {/* Search Form */}
       <Card>
-        <CardContent className="p-4 md:p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <CardContent className="p-4 md:p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               <label className="text-sm font-medium text-foreground flex items-center gap-2 mb-2">
                 <MapPin className="h-4 w-4" /> Zona / Città
               </label>
               <Input
-                placeholder="es. Milano, Bergamo..."
+                placeholder="es. Lugano, Milano, Bergamo..."
                 value={searchLocation}
                 onChange={e => setSearchLocation(e.target.value)}
               />
@@ -198,32 +216,35 @@ export function CompanySearch() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Settore
-              </label>
-              <Select value={selectedSector} onValueChange={setSelectedSector}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SETTORI.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Keywords */}
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Settori di interesse
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {KEYWORDS.map(kw => (
+                <Badge 
+                  key={kw.id}
+                  variant={selectedKeywords.includes(kw.id) ? "default" : "outline"}
+                  className="cursor-pointer hover:bg-primary/80"
+                  onClick={() => toggleKeyword(kw.id)}
+                >
+                  {kw.label}
+                </Badge>
+              ))}
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Checkbox 
                 id="emailOnly"
                 checked={showOnlyWithEmail}
                 onCheckedChange={(checked) => setShowOnlyWithEmail(checked as boolean)}
               />
-              <label htmlFor="emailOnly" className="text-sm text-muted cursor-pointer">
+              <label htmlFor="emailOnly" className="text-sm text-muted-foreground cursor-pointer">
                 Mostra solo aziende con email
               </label>
             </div>
@@ -231,13 +252,13 @@ export function CompanySearch() {
             <Button onClick={handleSearch} disabled={isSearching || !searchLocation}>
               {isSearching ? (
                 <>
-                  <span className="animate-spin mr-2">⏳</span>
-                  Ricerca...
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  AI sta cercando...
                 </>
               ) : (
                 <>
-                  <Search className="h-4 w-4 mr-2" />
-                  Cerca Aziende
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Cerca con AI
                 </>
               )}
             </Button>
@@ -248,10 +269,18 @@ export function CompanySearch() {
       {/* Results */}
       {hasSearched && (
         <>
+          <Alert className="bg-amber-500/10 border-amber-500/30">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-sm">
+              <strong>Nota:</strong> I risultati sono generati dall'AI basandosi su dati pubblici. 
+              Verifica sempre le informazioni di contatto prima di inviare.
+            </AlertDescription>
+          </Alert>
+
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-muted" />
-              <span className="text-sm text-muted">
+              <Filter className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
                 {filteredAziende.length} aziende trovate • {aziendeSelezionate.length} selezionate
               </span>
             </div>
@@ -301,9 +330,9 @@ export function CompanySearch() {
                         </div>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
-                          <div className="flex items-center gap-2 text-muted">
+                          <div className="flex items-center gap-2 text-muted-foreground">
                             <MapPin className="h-4 w-4 shrink-0" />
-                            <span className="truncate">{azienda.indirizzo}, {azienda.citta}</span>
+                            <span className="truncate">{azienda.indirizzo ? `${azienda.indirizzo}, ` : ''}{azienda.citta}</span>
                           </div>
                           
                           <div className="flex items-center gap-2">
@@ -314,33 +343,37 @@ export function CompanySearch() {
                               </>
                             ) : (
                               <>
-                                <XCircle className="h-4 w-4 text-muted shrink-0" />
-                                <span className="text-muted italic">Email non trovata</span>
+                                <XCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <span className="text-muted-foreground italic">Email non trovata</span>
                               </>
                             )}
                           </div>
                           
-                          <div className="flex items-center gap-2 text-muted">
-                            <Phone className="h-4 w-4 shrink-0" />
-                            <span>{azienda.telefono}</span>
-                          </div>
+                          {azienda.telefono && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Phone className="h-4 w-4 shrink-0" />
+                              <span>{azienda.telefono}</span>
+                            </div>
+                          )}
                           
-                          <div className="flex items-center gap-2">
-                            <Globe className="h-4 w-4 text-muted shrink-0" />
-                            <a 
-                              href={`https://${azienda.sito}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline flex items-center gap-1"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              {azienda.sito}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </div>
+                          {azienda.sito && (
+                            <div className="flex items-center gap-2">
+                              <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <a 
+                                href={azienda.sito.startsWith('http') ? azienda.sito : `https://${azienda.sito}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline flex items-center gap-1 truncate"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                {azienda.sito.replace(/^https?:\/\//, '')}
+                                <ExternalLink className="h-3 w-3 shrink-0" />
+                              </a>
+                            </div>
+                          )}
                         </div>
                         
-                        <p className="text-xs text-muted mt-2">
+                        <p className="text-xs text-muted-foreground mt-2">
                           Fonte: {azienda.fonte}
                         </p>
                       </div>
@@ -355,9 +388,10 @@ export function CompanySearch() {
 
       {!hasSearched && (
         <Card className="p-12 text-center">
-          <Building2 className="h-16 w-16 text-muted mx-auto mb-4" />
-          <p className="text-muted">
-            Inserisci una località e clicca "Cerca Aziende" per trovare opportunità nella tua zona
+          <Sparkles className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">
+            Inserisci una località e seleziona i settori di interesse.<br />
+            L'AI cercherà aziende nella zona e troverà i contatti pubblici.
           </p>
         </Card>
       )}

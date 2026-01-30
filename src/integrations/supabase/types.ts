@@ -14,13 +14,199 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      companies: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_type: string | null
+          created_at: string
+          email: string | null
+          id: string
+          match_score: number | null
+          name: string
+          notes: string | null
+          phone: string | null
+          sector: string | null
+          source: string | null
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_type?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          match_score?: number | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          sector?: string | null
+          source?: string | null
+          updated_at?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_type?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          match_score?: number | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          sector?: string | null
+          source?: string | null
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      sent_emails: {
+        Row: {
+          body: string | null
+          company_id: string | null
+          company_name: string
+          created_at: string
+          cv_version: string | null
+          domain: string
+          email: string
+          error_message: string | null
+          id: string
+          sent_at: string
+          status: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          company_id?: string | null
+          company_name: string
+          created_at?: string
+          cv_version?: string | null
+          domain: string
+          email: string
+          error_message?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          subject: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          company_id?: string | null
+          company_name?: string
+          created_at?: string
+          cv_version?: string | null
+          domain?: string
+          email?: string
+          error_message?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sent_emails_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          availability: string | null
+          cap: string | null
+          city: string | null
+          created_at: string
+          cv_full_summary: string | null
+          cv_short_summary: string | null
+          email: string | null
+          exclude_same_domain: boolean | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          profile_summary: string | null
+          search_radius_km: number | null
+          shift_preference: string | null
+          skills: string[] | null
+          target_role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          availability?: string | null
+          cap?: string | null
+          city?: string | null
+          created_at?: string
+          cv_full_summary?: string | null
+          cv_short_summary?: string | null
+          email?: string | null
+          exclude_same_domain?: boolean | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          profile_summary?: string | null
+          search_radius_km?: number | null
+          shift_preference?: string | null
+          skills?: string[] | null
+          target_role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          availability?: string | null
+          cap?: string | null
+          city?: string | null
+          created_at?: string
+          cv_full_summary?: string | null
+          cv_short_summary?: string | null
+          email?: string | null
+          exclude_same_domain?: boolean | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          profile_summary?: string | null
+          search_radius_km?: number | null
+          shift_preference?: string | null
+          skills?: string[] | null
+          target_role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_duplicate_contact: {
+        Args: {
+          p_check_domain?: boolean
+          p_company_name: string
+          p_email: string
+          p_user_id: string
+        }
+        Returns: {
+          duplicate_type: string
+          is_duplicate: boolean
+          last_sent_date: string
+          original_company: string
+        }[]
+      }
+      extract_email_domain: { Args: { email_address: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never

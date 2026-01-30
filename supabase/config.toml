@@ -1,1 +1,10 @@
 project_id = "khrkgwaflesltgftxfwe"
+
+[functions.ai-parse-cv]
+verify_jwt = false
+
+[functions.ai-generate-email]
+verify_jwt = false
+
+[functions.ai-search-companies]
+verify_jwt = false
