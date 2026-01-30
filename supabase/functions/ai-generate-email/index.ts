@@ -87,22 +87,36 @@ REGOLE IMPORTANTI:
 4. Tono professionale svizzero: diretto, chiaro, educato
 5. Includi sempre i contatti nella firma
 
-FORMATTAZIONE - REGOLE CRITICHE:
+FORMATTAZIONE HTML - REGOLE CRITICHE:
+- Il corpo email DEVE essere in formato HTML email-ready
 - NON usare MAI asterischi ** o sintassi Markdown
-- Il testo deve essere PULITO, pronto per Gmail/Hotmail
-- Per evidenziare parole chiave importanti, usa MAIUSCOLO MODERATO su singole parole:
-  * Ruolo cercato: es. "come MAGAZZINIERE" o "posizione di AUTISTA"
-  * Competenze tecniche: es. "esperienza in VERNICIATURA INDUSTRIALE"
-  * Anni di esperienza: es. "con oltre 5 ANNI di esperienza"
-  * Disponibilità: es. "DISPONIBILITÀ IMMEDIATA"
-- Usa il maiuscolo con moderazione (max 4-5 parole per email)
-- NON mettere in maiuscolo frasi intere, solo parole/espressioni chiave singole
+- NON usare MAIUSCOLE per evidenziare
+- USA ESCLUSIVAMENTE tag HTML per il grassetto: <b>testo</b> oppure <strong>testo</strong>
+
+PAROLE/FRASI DA METTERE IN GRASSETTO con <b></b>:
+- Ruolo professionale: es. <b>verniciatore industriale</b>, <b>magazziniere</b>
+- Competenze chiave: es. <b>verniciatura industriale</b>, <b>preparazione superfici</b>
+- Anni di esperienza: es. <b>oltre 5 anni di esperienza</b>
+- Qualità distintive: es. <b>controllo qualità</b>, <b>norme di sicurezza</b>
+- Disponibilità: es. <b>disponibilità immediata</b>
+- Nome candidato nella firma: es. <b>${cvData.nome} ${cvData.cognome}</b>
+
+ESEMPIO CORPO EMAIL CORRETTO:
+"Gentile Responsabile,
+
+mi permetto di contattarVi per proporre la mia candidatura come <b>verniciatore industriale</b>.
+
+Ho maturato <b>oltre 5 anni di esperienza</b> nella <b>verniciatura industriale</b> di superfici metalliche, con competenze specifiche in <b>preparazione superfici</b> e <b>controllo qualità</b>.
+
+Sono disponibile con <b>disponibilità immediata</b> e resto a disposizione per un colloquio conoscitivo.
+
+Cordiali saluti"
 
 Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
 {
-  "oggetto": "Oggetto dell'email",
-  "corpo": "Corpo completo dell'email (testo pulito senza asterischi)",
-  "firma": "Firma con contatti",
+  "oggetto": "Oggetto dell'email (testo semplice senza HTML)",
+  "corpo": "Corpo HTML con tag <b> per il grassetto",
+  "firma": "Firma con contatti (può contenere <b> per il nome)",
   "matchPoints": ["punto1", "punto2", "punto3"]
 }`;
 
@@ -147,7 +161,7 @@ Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
       }
       emailData = JSON.parse(jsonStr);
       
-      // Pulizia automatica: rimuovi eventuali asterischi Markdown residui
+      // Pulizia: rimuovi asterischi Markdown residui
       if (emailData.corpo) {
         emailData.corpo = emailData.corpo.replace(/\*\*/g, '');
       }
@@ -157,6 +171,31 @@ Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
       if (emailData.firma) {
         emailData.firma = emailData.firma.replace(/\*\*/g, '');
       }
+      
+      // Verifica che il corpo contenga tag HTML per grassetto
+      // Se non contiene <b> o <strong>, converti parole chiave comuni
+      if (emailData.corpo && !emailData.corpo.includes('<b>') && !emailData.corpo.includes('<strong>')) {
+        console.log('No HTML bold tags found, adding them automatically');
+        const keywordsToHighlight = [
+          'verniciatura industriale',
+          'verniciatore industriale',
+          'preparazione superfici',
+          'controllo qualità',
+          'disponibilità immediata',
+          'esperienza',
+          'competenze',
+          'vernici',
+          'superfici metalliche'
+        ];
+        
+        let corpo = emailData.corpo;
+        keywordsToHighlight.forEach(keyword => {
+          const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
+          corpo = corpo.replace(regex, '<b>$1</b>');
+        });
+        emailData.corpo = corpo;
+      }
+      
     } catch (parseError) {
       console.error('Failed to parse AI response:', content);
       throw new Error('Failed to parse email data from AI response');
