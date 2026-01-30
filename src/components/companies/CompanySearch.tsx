@@ -130,6 +130,7 @@ export function CompanySearch() {
         settore: company.sector || 'Altro',
         fonte: company.source || 'AI Search',
         distanza: company.distance_km || 0,
+        tempoPercorrenza: company.travel_time || '',
       }));
 
       // Le aziende sono già ordinate per distanza dal backend
@@ -364,7 +365,7 @@ export function CompanySearch() {
                           <div className="flex gap-2 flex-wrap">
                             <Badge variant="secondary">{azienda.settore}</Badge>
                             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                              📍 {azienda.distanza} km da {originCity}
+                              📍 {azienda.distanza} km – ⏱️ {azienda.tempoPercorrenza || 'n/d'} da {originCity}
                             </Badge>
                           </div>
                         </div>

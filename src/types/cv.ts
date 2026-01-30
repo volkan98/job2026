@@ -45,6 +45,7 @@ export interface Azienda {
   settore: string;
   fonte: string;
   distanza: number;
+  tempoPercorrenza?: string; // Tempo stimato in auto (es. "25 min", "1h 15min")
 }
 
 export interface EmailTemplate {
