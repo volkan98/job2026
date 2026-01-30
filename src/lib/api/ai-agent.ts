@@ -43,6 +43,7 @@ export interface Company {
   match_score?: number;
   match_reasons?: string[];
   distance_km?: number; // Distanza dalla città di residenza
+  travel_time?: string; // Tempo di percorrenza stimato (es. "25 min", "1h 15min")
 }
 
 export interface EmailTemplate {

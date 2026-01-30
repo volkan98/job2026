@@ -85,10 +85,13 @@ ISTRUZIONI CRITICHE - RICERCA PROFONDA:
 7. Includi il sito web quando possibile
 8. Varia i tipi di azienda: grandi gruppi, medie imprese, piccole aziende, studi, cooperative
 
-CALCOLO DISTANZA OBBLIGATORIO:
+CALCOLO DISTANZA E TEMPO DI PERCORRENZA OBBLIGATORIO:
 - Calcola la distanza approssimativa in km da "${originCity}" per OGNI azienda
+- Calcola il tempo di percorrenza stimato IN AUTO per ogni azienda
 - Usa una stima realistica basata sulla distanza stradale/geografica tra le città
-- Ordina mentalmente le aziende dalla più vicina alla più lontana
+- Il tempo deve considerare: tipo di strada (autostrada ~100km/h, statale ~60km/h, urbana ~40km/h)
+- Formato tempo: "X min" per meno di 1 ora, "Xh Ymin" per più di 1 ora (es. "15 min", "45 min", "1h 20min")
+- Ordina mentalmente le aziende dal tempo di percorrenza più breve al più lungo
 - La distanza deve essere un numero intero realistico (es. 5, 12, 23, 45 km)
 
 DIVERSIFICA LE TIPOLOGIE:
@@ -115,6 +118,7 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno 
     "match_score": 85,
     "match_reasons": ["motivo1", "motivo2"],
     "distance_km": 15,
+    "travel_time": "25 min",
     "verification_note": "Nota per verifica contatti"
   }
 ]`;
