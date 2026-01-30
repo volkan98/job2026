@@ -87,20 +87,21 @@ REGOLE IMPORTANTI:
 4. Tono professionale svizzero: diretto, chiaro, educato
 5. Includi sempre i contatti nella firma
 
-FORMATTAZIONE GRASSETTO (usa **parola** per il grassetto):
-- Evidenzia in grassetto SOLO le seguenti parole chiave quando appaiono nel testo:
-  * Il ruolo/posizione cercata (es. **Magazziniere**, **Autista**)
-  * Competenze principali e tecniche specifiche
-  * Anni di esperienza (es. **5 anni di esperienza**)
-  * Disponibilità (es. **disponibilità immediata**)
-  * Mansioni operative chiave (es. **gestione magazzino**, **guida mezzi pesanti**)
-- Usa il grassetto in modo moderato e professionale (max 5-7 elementi per email)
-- NON mettere in grassetto frasi intere, solo parole/espressioni chiave
+FORMATTAZIONE - REGOLE CRITICHE:
+- NON usare MAI asterischi ** o sintassi Markdown
+- Il testo deve essere PULITO, pronto per Gmail/Hotmail
+- Per evidenziare parole chiave importanti, usa MAIUSCOLO MODERATO su singole parole:
+  * Ruolo cercato: es. "come MAGAZZINIERE" o "posizione di AUTISTA"
+  * Competenze tecniche: es. "esperienza in VERNICIATURA INDUSTRIALE"
+  * Anni di esperienza: es. "con oltre 5 ANNI di esperienza"
+  * Disponibilità: es. "DISPONIBILITÀ IMMEDIATA"
+- Usa il maiuscolo con moderazione (max 4-5 parole per email)
+- NON mettere in maiuscolo frasi intere, solo parole/espressioni chiave singole
 
 Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
 {
   "oggetto": "Oggetto dell'email",
-  "corpo": "Corpo completo dell'email con parole chiave in **grassetto**",
+  "corpo": "Corpo completo dell'email (testo pulito senza asterischi)",
   "firma": "Firma con contatti",
   "matchPoints": ["punto1", "punto2", "punto3"]
 }`;
@@ -145,6 +146,17 @@ Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
         jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
       }
       emailData = JSON.parse(jsonStr);
+      
+      // Pulizia automatica: rimuovi eventuali asterischi Markdown residui
+      if (emailData.corpo) {
+        emailData.corpo = emailData.corpo.replace(/\*\*/g, '');
+      }
+      if (emailData.oggetto) {
+        emailData.oggetto = emailData.oggetto.replace(/\*\*/g, '');
+      }
+      if (emailData.firma) {
+        emailData.firma = emailData.firma.replace(/\*\*/g, '');
+      }
     } catch (parseError) {
       console.error('Failed to parse AI response:', content);
       throw new Error('Failed to parse email data from AI response');
