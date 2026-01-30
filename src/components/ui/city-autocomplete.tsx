@@ -104,10 +104,17 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
     const inputValue = e.target.value;
     onChange(inputValue);
 
-    if (inputValue.length >= 2) {
-      const filtered = CITIES.filter(city =>
-        city.toLowerCase().startsWith(inputValue.toLowerCase())
-      ).slice(0, 10);
+    if (inputValue.length >= 1) {
+      const searchTerm = inputValue.toLowerCase();
+      // Prima le città che iniziano con il termine, poi quelle che lo contengono
+      const startsWithFilter = CITIES.filter(city =>
+        city.toLowerCase().startsWith(searchTerm)
+      );
+      const containsFilter = CITIES.filter(city =>
+        city.toLowerCase().includes(searchTerm) && 
+        !city.toLowerCase().startsWith(searchTerm)
+      );
+      const filtered = [...startsWithFilter, ...containsFilter].slice(0, 10);
       setFilteredCities(filtered);
       setIsOpen(filtered.length > 0);
       setHighlightedIndex(-1);
