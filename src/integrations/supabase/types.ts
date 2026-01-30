@@ -68,6 +68,42 @@ export type Database = {
         }
         Relationships: []
       }
+      email_oauth_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          email_address: string | null
+          id: string
+          provider: string
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          email_address?: string | null
+          id?: string
+          provider: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          email_address?: string | null
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sent_emails: {
         Row: {
           body: string | null
