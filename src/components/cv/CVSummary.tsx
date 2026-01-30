@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,7 +22,9 @@ import {
   ArrowRight,
   RefreshCw,
   Plus,
-  X
+  X,
+  Save,
+  Loader2
 } from 'lucide-react';
 
 function generateSintesiBreve(cvData: any): string {
@@ -46,6 +50,8 @@ function generateSintesiCompleta(cvData: any): string {
 
 export function CVSummary() {
   const { cvData, setCvData, setSintesiBreve, setSintesiCompleta, sintesiBreve, sintesiCompleta, setCurrentStep } = useCVContext();
+  const { saveProfile, isSaving } = useUserProfile();
+  const { toast } = useToast();
   const [editedData, setEditedData] = useState(cvData);
   const [newCompetenza, setNewCompetenza] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -100,8 +106,21 @@ export function CVSummary() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (!editedData) return;
+    
     setCvData(editedData);
+    
+    // Save to database
+    const result = await saveProfile(editedData, sintesiBreve, sintesiCompleta);
+    
+    if (result.success) {
+      toast({
+        title: 'Profilo salvato',
+        description: 'I dati del CV sono stati salvati nel tuo account.',
+      });
+    }
+    
     setCurrentStep(2);
   };
 
@@ -355,9 +374,18 @@ export function CVSummary() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Indietro
         </Button>
-        <Button onClick={handleNext}>
-          Trova Aziende
-          <ArrowRight className="h-4 w-4 ml-2" />
+        <Button onClick={handleNext} disabled={isSaving}>
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Salvataggio...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Salva e Trova Aziende
+            </>
+          )}
         </Button>
       </div>
     </div>

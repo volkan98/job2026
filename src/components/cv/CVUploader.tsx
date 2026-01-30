@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react';
-import { Upload, FileText, X, AlertCircle, Loader2 } from 'lucide-react';
+import { useCallback, useState, useEffect } from 'react';
+import { Upload, FileText, X, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCVContext } from '@/contexts/CVContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { aiAgent } from '@/lib/api/ai-agent';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -14,11 +15,40 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.j
 
 export function CVUploader() {
   const { setCvFile, setCvData, setSintesiBreve, setSintesiCompleta, setCurrentStep } = useCVContext();
+  const { profile, isLoading: isProfileLoading, hasSavedCV, getCVDataFromProfile, uploadCV } = useUserProfile();
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Load saved profile data on mount
+  useEffect(() => {
+    if (profile && hasSavedCV) {
+      const savedCVData = getCVDataFromProfile();
+      if (savedCVData) {
+        setCvData(savedCVData);
+        setSintesiBreve(profile.cv_short_summary || '');
+        setSintesiCompleta(profile.cv_full_summary || '');
+      }
+    }
+  }, [profile, hasSavedCV, getCVDataFromProfile, setCvData, setSintesiBreve, setSintesiCompleta]);
+
+  const handleUseSavedCV = () => {
+    if (profile && hasSavedCV) {
+      const savedCVData = getCVDataFromProfile();
+      if (savedCVData) {
+        setCvData(savedCVData);
+        setSintesiBreve(profile.cv_short_summary || '');
+        setSintesiCompleta(profile.cv_full_summary || '');
+        toast({
+          title: 'CV caricato',
+          description: 'I dati del tuo CV salvato sono stati caricati.',
+        });
+        setCurrentStep(1);
+      }
+    }
+  };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -176,10 +206,13 @@ export function CVUploader() {
       setCvData(parsedData);
       setSintesiBreve(result.data.sintesiBreve || '');
       setSintesiCompleta(result.data.sintesiCompleta || '');
+
+      // Upload CV file to storage
+      await uploadCV(file);
       
       toast({
         title: 'CV analizzato con successo!',
-        description: 'I dati sono stati estratti. Verifica e modifica se necessario.',
+        description: 'I dati sono stati estratti e salvati nel tuo profilo.',
       });
       
       setCurrentStep(1);
@@ -196,6 +229,14 @@ export function CVUploader() {
     }
   };
 
+  if (isProfileLoading) {
+    return (
+      <div className="max-w-2xl mx-auto flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="text-center space-y-2">
@@ -206,6 +247,23 @@ export function CVUploader() {
           Trascina il tuo CV in formato PDF o DOCX per iniziare
         </p>
       </div>
+
+      {/* Show saved CV option if available */}
+      {hasSavedCV && (
+        <Alert className="bg-green-500/10 border-green-500/30">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertDescription>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <span className="text-green-700">
+                Hai già un CV salvato nel tuo profilo ({profile?.full_name})
+              </span>
+              <Button size="sm" onClick={handleUseSavedCV}>
+                Usa CV salvato
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Alert className="bg-primary/5 border-primary/20">
         <AlertCircle className="h-4 w-4 text-primary" />
