@@ -156,7 +156,7 @@ export function CompanySearch() {
   const filteredAziende = aziende.filter(az => {
     if (selectedSector !== 'Tutti i settori' && az.settore !== selectedSector) return false;
     if (showOnlyWithEmail && !az.email) return false;
-    if (az.distanza > parseInt(searchRadius)) return false;
+    // Non filtrare più per distanza - le aziende sono già filtrate dal backend
     return true;
   });
 
