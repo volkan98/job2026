@@ -10,6 +10,7 @@ interface SearchRequest {
   cvSkills?: string[];
   targetRole?: string;
   minResults?: number;
+  userCity?: string; // Città di residenza dell'utente per calcolo distanza
 }
 
 Deno.serve(async (req) => {
@@ -18,7 +19,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { location, radius, keywords, cvSkills, targetRole, minResults = 30 }: SearchRequest = await req.json();
+    const { location, radius, keywords, cvSkills, targetRole, minResults = 30, userCity }: SearchRequest = await req.json();
 
     if (!location || !keywords || keywords.length === 0) {
       return new Response(
@@ -27,7 +28,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('AI deep searching companies in:', location, 'keywords:', keywords, 'minResults:', minResults);
+    const originCity = userCity || location;
+    console.log('AI deep searching companies in:', location, 'from:', originCity, 'keywords:', keywords, 'minResults:', minResults);
 
     const aiGatewayUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
     const aiGatewayToken = Deno.env.get('LOVABLE_API_KEY');
@@ -47,6 +49,7 @@ Deno.serve(async (req) => {
 
     const prompt = `Sei un agente di ricerca lavoro professionale svizzero/italiano con accesso a vaste banche dati aziendali. Il tuo compito è generare la lista PIÙ COMPLETA POSSIBILE di aziende reali.
 
+PUNTO DI PARTENZA UTENTE: ${originCity}
 ZONA DI RICERCA:
 - Località: ${location}
 - Raggio: ${radius} km
@@ -82,6 +85,12 @@ ISTRUZIONI CRITICHE - RICERCA PROFONDA:
 7. Includi il sito web quando possibile
 8. Varia i tipi di azienda: grandi gruppi, medie imprese, piccole aziende, studi, cooperative
 
+CALCOLO DISTANZA OBBLIGATORIO:
+- Calcola la distanza approssimativa in km da "${originCity}" per OGNI azienda
+- Usa una stima realistica basata sulla distanza stradale/geografica tra le città
+- Ordina mentalmente le aziende dalla più vicina alla più lontana
+- La distanza deve essere un numero intero realistico (es. 5, 12, 23, 45 km)
+
 DIVERSIFICA LE TIPOLOGIE:
 - Aziende multinazionali con sede locale
 - Medie imprese regionali
@@ -105,6 +114,7 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno 
     "source": "Fonte suggerita per verifica",
     "match_score": 85,
     "match_reasons": ["motivo1", "motivo2"],
+    "distance_km": 15,
     "verification_note": "Nota per verifica contatti"
   }
 ]`;
@@ -197,13 +207,13 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno 
       return true;
     });
 
-    // Sort by match_score
-    companies.sort((a: any, b: any) => (b.match_score || 0) - (a.match_score || 0));
+    // Sort by distance (closest first)
+    companies.sort((a: any, b: any) => (a.distance_km || 999) - (b.distance_km || 999));
 
     console.log('Found', companies.length, 'companies (requested min:', minResults, ')');
 
     return new Response(
-      JSON.stringify({ success: true, data: companies, total: companies.length }),
+      JSON.stringify({ success: true, data: companies, total: companies.length, originCity }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: unknown) {

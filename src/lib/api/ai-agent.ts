@@ -42,6 +42,7 @@ export interface Company {
   source?: string;
   match_score?: number;
   match_reasons?: string[];
+  distance_km?: number; // Distanza dalla città di residenza
 }
 
 export interface EmailTemplate {
@@ -78,11 +79,12 @@ export const aiAgent = {
     keywords: string[],
     cvSkills?: string[],
     targetRole?: string,
-    minResults: number = 30
-  ): Promise<{ success: boolean; data?: Company[]; total?: number; error?: string }> {
+    minResults: number = 30,
+    userCity?: string // Città di residenza dell'utente
+  ): Promise<{ success: boolean; data?: Company[]; total?: number; originCity?: string; error?: string }> {
     try {
       const { data, error } = await supabase.functions.invoke('ai-search-companies', {
-        body: { location, radius, keywords, cvSkills, targetRole, minResults },
+        body: { location, radius, keywords, cvSkills, targetRole, minResults, userCity },
       });
 
       if (error) {
