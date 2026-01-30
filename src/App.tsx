@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { CVProvider } from "@/contexts/CVContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import OAuthCallback from "./pages/OAuthCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/oauth-callback" element={<OAuthCallback />} />
               <Route path="/" element={<Index />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
