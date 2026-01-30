@@ -153,10 +153,12 @@ export function CompanySearch() {
     }
   };
 
+  // Filtra per raggio massimo dalla residenza dell'utente
   const filteredAziende = aziende.filter(az => {
     if (selectedSector !== 'Tutti i settori' && az.settore !== selectedSector) return false;
     if (showOnlyWithEmail && !az.email) return false;
-    // Non filtrare più per distanza - le aziende sono già filtrate dal backend
+    // Il raggio è il limite massimo dalla residenza dell'utente
+    if (az.distanza > parseInt(searchRadius)) return false;
     return true;
   });
 
@@ -220,18 +222,18 @@ export function CompanySearch() {
             
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Raggio (km)
+                Distanza max da {cvData?.citta || 'te'}
               </label>
               <Select value={searchRadius} onValueChange={setSearchRadius}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="10">10 km</SelectItem>
-                  <SelectItem value="20">20 km</SelectItem>
-                  <SelectItem value="30">30 km</SelectItem>
-                  <SelectItem value="50">50 km</SelectItem>
-                  <SelectItem value="100">100 km</SelectItem>
+                  <SelectItem value="10">Max 10 km</SelectItem>
+                  <SelectItem value="20">Max 20 km</SelectItem>
+                  <SelectItem value="30">Max 30 km</SelectItem>
+                  <SelectItem value="50">Max 50 km</SelectItem>
+                  <SelectItem value="100">Max 100 km</SelectItem>
                 </SelectContent>
               </Select>
             </div>
