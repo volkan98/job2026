@@ -223,9 +223,8 @@ export function CompanySearch() {
   // Filtra per settore e email - la distanza è già gestita dal backend
   const filteredAziende = aziende.filter(az => {
     if (selectedSector !== 'Tutti i settori' && az.settore !== selectedSector) return false;
-    if (showOnlyWithEmail && !az.email) return false;
-    // NON filtrare per distanza: le aziende sono ordinate per vicinanza dal backend
-    // Il raggio viene usato solo per definire l'area di ricerca, non per escludere risultati
+    // Controlla sia null che stringa vuota
+    if (showOnlyWithEmail && (!az.email || az.email.trim() === '')) return false;
     return true;
   });
 
