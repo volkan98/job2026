@@ -77,11 +77,12 @@ export const aiAgent = {
     radius: number,
     keywords: string[],
     cvSkills?: string[],
-    targetRole?: string
-  ): Promise<{ success: boolean; data?: Company[]; error?: string }> {
+    targetRole?: string,
+    minResults: number = 30
+  ): Promise<{ success: boolean; data?: Company[]; total?: number; error?: string }> {
     try {
       const { data, error } = await supabase.functions.invoke('ai-search-companies', {
-        body: { location, radius, keywords, cvSkills, targetRole },
+        body: { location, radius, keywords, cvSkills, targetRole, minResults },
       });
 
       if (error) {
