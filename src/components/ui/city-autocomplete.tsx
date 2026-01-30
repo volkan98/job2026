@@ -3,76 +3,269 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { MapPin } from 'lucide-react';
 
-// Lista città italiane e svizzere principali
-const CITIES = [
-  // Svizzera - Canton Ticino e zone limitrofe
-  'Lugano', 'Bellinzona', 'Locarno', 'Mendrisio', 'Chiasso', 'Biasca', 
-  'Giubiasco', 'Gordola', 'Ascona', 'Minusio', 'Muralto', 'Paradiso',
-  'Massagno', 'Viganello', 'Pregassona', 'Breganzona', 'Comano', 'Cadro',
-  'Melide', 'Morcote', 'Capolago', 'Riva San Vitale', 'Agno', 'Magliaso',
-  'Caslano', 'Ponte Tresa', 'Stabio', 'Vacallo', 'Morbio Inferiore',
-  'Balerna', 'Coldrerio', 'Novazzano', 'Ligornetto', 'Arbedo-Castione',
-  'Cadenazzo', 'Magadino', 'Tenero', 'Brissago', 'Losone', 'Orselina',
-  // Altre città svizzere
-  'Zurigo', 'Ginevra', 'Basilea', 'Berna', 'Losanna', 'Winterthur',
-  'San Gallo', 'Lucerna', 'Friburgo', 'Neuchâtel', 'Thun', 'Sion',
-  'Montreux', 'Vevey', 'Nyon', 'Morges', 'Yverdon-les-Bains',
+interface CityData {
+  name: string;
+  region: string;
+  country: string;
+}
+
+// Lista città con regione/cantone
+const CITIES_DATA: CityData[] = [
+  // Svizzera - Canton Ticino
+  { name: 'Lugano', region: 'Ticino', country: 'CH' },
+  { name: 'Bellinzona', region: 'Ticino', country: 'CH' },
+  { name: 'Locarno', region: 'Ticino', country: 'CH' },
+  { name: 'Mendrisio', region: 'Ticino', country: 'CH' },
+  { name: 'Chiasso', region: 'Ticino', country: 'CH' },
+  { name: 'Biasca', region: 'Ticino', country: 'CH' },
+  { name: 'Giubiasco', region: 'Ticino', country: 'CH' },
+  { name: 'Gordola', region: 'Ticino', country: 'CH' },
+  { name: 'Ascona', region: 'Ticino', country: 'CH' },
+  { name: 'Minusio', region: 'Ticino', country: 'CH' },
+  { name: 'Muralto', region: 'Ticino', country: 'CH' },
+  { name: 'Paradiso', region: 'Ticino', country: 'CH' },
+  { name: 'Massagno', region: 'Ticino', country: 'CH' },
+  { name: 'Viganello', region: 'Ticino', country: 'CH' },
+  { name: 'Pregassona', region: 'Ticino', country: 'CH' },
+  { name: 'Breganzona', region: 'Ticino', country: 'CH' },
+  { name: 'Comano', region: 'Ticino', country: 'CH' },
+  { name: 'Cadro', region: 'Ticino', country: 'CH' },
+  { name: 'Melide', region: 'Ticino', country: 'CH' },
+  { name: 'Morcote', region: 'Ticino', country: 'CH' },
+  { name: 'Capolago', region: 'Ticino', country: 'CH' },
+  { name: 'Riva San Vitale', region: 'Ticino', country: 'CH' },
+  { name: 'Agno', region: 'Ticino', country: 'CH' },
+  { name: 'Magliaso', region: 'Ticino', country: 'CH' },
+  { name: 'Caslano', region: 'Ticino', country: 'CH' },
+  { name: 'Ponte Tresa', region: 'Ticino', country: 'CH' },
+  { name: 'Stabio', region: 'Ticino', country: 'CH' },
+  { name: 'Vacallo', region: 'Ticino', country: 'CH' },
+  { name: 'Morbio Inferiore', region: 'Ticino', country: 'CH' },
+  { name: 'Balerna', region: 'Ticino', country: 'CH' },
+  { name: 'Coldrerio', region: 'Ticino', country: 'CH' },
+  { name: 'Novazzano', region: 'Ticino', country: 'CH' },
+  { name: 'Ligornetto', region: 'Ticino', country: 'CH' },
+  { name: 'Arbedo-Castione', region: 'Ticino', country: 'CH' },
+  { name: 'Cadenazzo', region: 'Ticino', country: 'CH' },
+  { name: 'Magadino', region: 'Ticino', country: 'CH' },
+  { name: 'Tenero', region: 'Ticino', country: 'CH' },
+  { name: 'Brissago', region: 'Ticino', country: 'CH' },
+  { name: 'Losone', region: 'Ticino', country: 'CH' },
+  { name: 'Orselina', region: 'Ticino', country: 'CH' },
+  
+  // Svizzera - Altri cantoni
+  { name: 'Zurigo', region: 'Zurigo', country: 'CH' },
+  { name: 'Ginevra', region: 'Ginevra', country: 'CH' },
+  { name: 'Basilea', region: 'Basilea', country: 'CH' },
+  { name: 'Berna', region: 'Berna', country: 'CH' },
+  { name: 'Losanna', region: 'Vaud', country: 'CH' },
+  { name: 'Winterthur', region: 'Zurigo', country: 'CH' },
+  { name: 'San Gallo', region: 'San Gallo', country: 'CH' },
+  { name: 'Lucerna', region: 'Lucerna', country: 'CH' },
+  { name: 'Friburgo', region: 'Friburgo', country: 'CH' },
+  { name: 'Neuchâtel', region: 'Neuchâtel', country: 'CH' },
+  { name: 'Thun', region: 'Berna', country: 'CH' },
+  { name: 'Sion', region: 'Vallese', country: 'CH' },
+  { name: 'Montreux', region: 'Vaud', country: 'CH' },
+  { name: 'Vevey', region: 'Vaud', country: 'CH' },
+  { name: 'Nyon', region: 'Vaud', country: 'CH' },
+  { name: 'Morges', region: 'Vaud', country: 'CH' },
+  { name: 'Yverdon-les-Bains', region: 'Vaud', country: 'CH' },
   
   // Italia - Lombardia
-  'Milano', 'Como', 'Varese', 'Lecco', 'Bergamo', 'Brescia', 'Monza',
-  'Pavia', 'Cremona', 'Mantova', 'Lodi', 'Sondrio', 'Busto Arsizio',
-  'Gallarate', 'Saronno', 'Legnano', 'Rho', 'Sesto San Giovanni',
-  'Cinisello Balsamo', 'Cologno Monzese', 'Desio', 'Cantù', 'Erba',
-  'Mariano Comense', 'Seregno', 'Lissone', 'Meda', 'Cesano Maderno',
-  'Limbiate', 'Paderno Dugnano', 'Novate Milanese', 'Cusano Milanino',
-  'Cernusco sul Naviglio', 'Pioltello', 'Segrate', 'Vimodrone',
-  'Cassano d\'Adda', 'Melzo', 'Gorgonzola', 'Vimercate', 'Arcore',
-  'Villasanta', 'Biassono', 'Vedano al Lambro', 'Macherio', 'Sovico',
+  { name: 'Milano', region: 'Lombardia', country: 'IT' },
+  { name: 'Como', region: 'Lombardia', country: 'IT' },
+  { name: 'Varese', region: 'Lombardia', country: 'IT' },
+  { name: 'Lecco', region: 'Lombardia', country: 'IT' },
+  { name: 'Bergamo', region: 'Lombardia', country: 'IT' },
+  { name: 'Brescia', region: 'Lombardia', country: 'IT' },
+  { name: 'Monza', region: 'Lombardia', country: 'IT' },
+  { name: 'Pavia', region: 'Lombardia', country: 'IT' },
+  { name: 'Cremona', region: 'Lombardia', country: 'IT' },
+  { name: 'Mantova', region: 'Lombardia', country: 'IT' },
+  { name: 'Lodi', region: 'Lombardia', country: 'IT' },
+  { name: 'Sondrio', region: 'Lombardia', country: 'IT' },
+  { name: 'Busto Arsizio', region: 'Lombardia', country: 'IT' },
+  { name: 'Gallarate', region: 'Lombardia', country: 'IT' },
+  { name: 'Saronno', region: 'Lombardia', country: 'IT' },
+  { name: 'Legnano', region: 'Lombardia', country: 'IT' },
+  { name: 'Rho', region: 'Lombardia', country: 'IT' },
+  { name: 'Sesto San Giovanni', region: 'Lombardia', country: 'IT' },
+  { name: 'Cinisello Balsamo', region: 'Lombardia', country: 'IT' },
+  { name: 'Cologno Monzese', region: 'Lombardia', country: 'IT' },
+  { name: 'Desio', region: 'Lombardia', country: 'IT' },
+  { name: 'Cantù', region: 'Lombardia', country: 'IT' },
+  { name: 'Erba', region: 'Lombardia', country: 'IT' },
+  { name: 'Mariano Comense', region: 'Lombardia', country: 'IT' },
+  { name: 'Seregno', region: 'Lombardia', country: 'IT' },
+  { name: 'Lissone', region: 'Lombardia', country: 'IT' },
+  { name: 'Meda', region: 'Lombardia', country: 'IT' },
+  { name: 'Cesano Maderno', region: 'Lombardia', country: 'IT' },
+  { name: 'Limbiate', region: 'Lombardia', country: 'IT' },
+  { name: 'Paderno Dugnano', region: 'Lombardia', country: 'IT' },
+  { name: 'Novate Milanese', region: 'Lombardia', country: 'IT' },
+  { name: 'Cusano Milanino', region: 'Lombardia', country: 'IT' },
+  { name: 'Cernusco sul Naviglio', region: 'Lombardia', country: 'IT' },
+  { name: 'Pioltello', region: 'Lombardia', country: 'IT' },
+  { name: 'Segrate', region: 'Lombardia', country: 'IT' },
+  { name: 'Vimodrone', region: 'Lombardia', country: 'IT' },
+  { name: "Cassano d'Adda", region: 'Lombardia', country: 'IT' },
+  { name: 'Melzo', region: 'Lombardia', country: 'IT' },
+  { name: 'Gorgonzola', region: 'Lombardia', country: 'IT' },
+  { name: 'Vimercate', region: 'Lombardia', country: 'IT' },
+  { name: 'Arcore', region: 'Lombardia', country: 'IT' },
+  { name: 'Villasanta', region: 'Lombardia', country: 'IT' },
+  { name: 'Biassono', region: 'Lombardia', country: 'IT' },
+  { name: 'Vedano al Lambro', region: 'Lombardia', country: 'IT' },
+  { name: 'Macherio', region: 'Lombardia', country: 'IT' },
+  { name: 'Sovico', region: 'Lombardia', country: 'IT' },
   
   // Italia - Piemonte
-  'Torino', 'Novara', 'Alessandria', 'Asti', 'Cuneo', 'Vercelli',
-  'Biella', 'Verbania', 'Domodossola', 'Arona', 'Borgomanero', 'Omegna',
-  'Stresa', 'Baveno', 'Pallanza', 'Intra', 'Gravellona Toce',
+  { name: 'Torino', region: 'Piemonte', country: 'IT' },
+  { name: 'Novara', region: 'Piemonte', country: 'IT' },
+  { name: 'Alessandria', region: 'Piemonte', country: 'IT' },
+  { name: 'Asti', region: 'Piemonte', country: 'IT' },
+  { name: 'Cuneo', region: 'Piemonte', country: 'IT' },
+  { name: 'Vercelli', region: 'Piemonte', country: 'IT' },
+  { name: 'Biella', region: 'Piemonte', country: 'IT' },
+  { name: 'Verbania', region: 'Piemonte', country: 'IT' },
+  { name: 'Domodossola', region: 'Piemonte', country: 'IT' },
+  { name: 'Arona', region: 'Piemonte', country: 'IT' },
+  { name: 'Borgomanero', region: 'Piemonte', country: 'IT' },
+  { name: 'Omegna', region: 'Piemonte', country: 'IT' },
+  { name: 'Stresa', region: 'Piemonte', country: 'IT' },
+  { name: 'Baveno', region: 'Piemonte', country: 'IT' },
+  { name: 'Pallanza', region: 'Piemonte', country: 'IT' },
+  { name: 'Intra', region: 'Piemonte', country: 'IT' },
+  { name: 'Gravellona Toce', region: 'Piemonte', country: 'IT' },
   
   // Italia - Valle d'Aosta
-  'Aosta', 'Courmayeur', 'Saint-Vincent', 'Châtillon',
+  { name: 'Aosta', region: "Valle d'Aosta", country: 'IT' },
+  { name: 'Courmayeur', region: "Valle d'Aosta", country: 'IT' },
+  { name: 'Saint-Vincent', region: "Valle d'Aosta", country: 'IT' },
+  { name: 'Châtillon', region: "Valle d'Aosta", country: 'IT' },
   
   // Italia - Veneto
-  'Venezia', 'Verona', 'Padova', 'Vicenza', 'Treviso', 'Rovigo', 'Belluno',
+  { name: 'Venezia', region: 'Veneto', country: 'IT' },
+  { name: 'Verona', region: 'Veneto', country: 'IT' },
+  { name: 'Padova', region: 'Veneto', country: 'IT' },
+  { name: 'Vicenza', region: 'Veneto', country: 'IT' },
+  { name: 'Treviso', region: 'Veneto', country: 'IT' },
+  { name: 'Rovigo', region: 'Veneto', country: 'IT' },
+  { name: 'Belluno', region: 'Veneto', country: 'IT' },
   
   // Italia - Emilia-Romagna
-  'Bologna', 'Parma', 'Modena', 'Reggio Emilia', 'Ravenna', 'Rimini',
-  'Ferrara', 'Forlì', 'Cesena', 'Piacenza',
+  { name: 'Bologna', region: 'Emilia-Romagna', country: 'IT' },
+  { name: 'Parma', region: 'Emilia-Romagna', country: 'IT' },
+  { name: 'Modena', region: 'Emilia-Romagna', country: 'IT' },
+  { name: 'Reggio Emilia', region: 'Emilia-Romagna', country: 'IT' },
+  { name: 'Ravenna', region: 'Emilia-Romagna', country: 'IT' },
+  { name: 'Rimini', region: 'Emilia-Romagna', country: 'IT' },
+  { name: 'Ferrara', region: 'Emilia-Romagna', country: 'IT' },
+  { name: 'Forlì', region: 'Emilia-Romagna', country: 'IT' },
+  { name: 'Cesena', region: 'Emilia-Romagna', country: 'IT' },
+  { name: 'Piacenza', region: 'Emilia-Romagna', country: 'IT' },
   
   // Italia - Toscana
-  'Firenze', 'Pisa', 'Livorno', 'Siena', 'Lucca', 'Arezzo', 'Prato',
-  'Pistoia', 'Grosseto', 'Massa', 'Carrara',
+  { name: 'Firenze', region: 'Toscana', country: 'IT' },
+  { name: 'Pisa', region: 'Toscana', country: 'IT' },
+  { name: 'Livorno', region: 'Toscana', country: 'IT' },
+  { name: 'Siena', region: 'Toscana', country: 'IT' },
+  { name: 'Lucca', region: 'Toscana', country: 'IT' },
+  { name: 'Arezzo', region: 'Toscana', country: 'IT' },
+  { name: 'Prato', region: 'Toscana', country: 'IT' },
+  { name: 'Pistoia', region: 'Toscana', country: 'IT' },
+  { name: 'Grosseto', region: 'Toscana', country: 'IT' },
+  { name: 'Massa', region: 'Toscana', country: 'IT' },
+  { name: 'Carrara', region: 'Toscana', country: 'IT' },
   
   // Italia - Lazio
-  'Roma', 'Latina', 'Frosinone', 'Viterbo', 'Rieti',
+  { name: 'Roma', region: 'Lazio', country: 'IT' },
+  { name: 'Latina', region: 'Lazio', country: 'IT' },
+  { name: 'Frosinone', region: 'Lazio', country: 'IT' },
+  { name: 'Viterbo', region: 'Lazio', country: 'IT' },
+  { name: 'Rieti', region: 'Lazio', country: 'IT' },
   
   // Italia - Campania
-  'Napoli', 'Salerno', 'Caserta', 'Avellino', 'Benevento',
+  { name: 'Napoli', region: 'Campania', country: 'IT' },
+  { name: 'Salerno', region: 'Campania', country: 'IT' },
+  { name: 'Caserta', region: 'Campania', country: 'IT' },
+  { name: 'Avellino', region: 'Campania', country: 'IT' },
+  { name: 'Benevento', region: 'Campania', country: 'IT' },
   
   // Italia - Puglia
-  'Bari', 'Lecce', 'Taranto', 'Foggia', 'Brindisi', 'Barletta',
+  { name: 'Bari', region: 'Puglia', country: 'IT' },
+  { name: 'Lecce', region: 'Puglia', country: 'IT' },
+  { name: 'Taranto', region: 'Puglia', country: 'IT' },
+  { name: 'Foggia', region: 'Puglia', country: 'IT' },
+  { name: 'Brindisi', region: 'Puglia', country: 'IT' },
+  { name: 'Barletta', region: 'Puglia', country: 'IT' },
   
   // Italia - Sicilia
-  'Palermo', 'Catania', 'Messina', 'Siracusa', 'Ragusa', 'Trapani',
+  { name: 'Palermo', region: 'Sicilia', country: 'IT' },
+  { name: 'Catania', region: 'Sicilia', country: 'IT' },
+  { name: 'Messina', region: 'Sicilia', country: 'IT' },
+  { name: 'Siracusa', region: 'Sicilia', country: 'IT' },
+  { name: 'Ragusa', region: 'Sicilia', country: 'IT' },
+  { name: 'Trapani', region: 'Sicilia', country: 'IT' },
   
   // Italia - Sardegna
-  'Cagliari', 'Sassari', 'Nuoro', 'Oristano', 'Olbia', 'Alghero',
+  { name: 'Cagliari', region: 'Sardegna', country: 'IT' },
+  { name: 'Sassari', region: 'Sardegna', country: 'IT' },
+  { name: 'Nuoro', region: 'Sardegna', country: 'IT' },
+  { name: 'Oristano', region: 'Sardegna', country: 'IT' },
+  { name: 'Olbia', region: 'Sardegna', country: 'IT' },
+  { name: 'Alghero', region: 'Sardegna', country: 'IT' },
   
-  // Italia - Altre regioni
-  'Genova', 'La Spezia', 'Savona', 'Imperia', // Liguria
-  'Trieste', 'Udine', 'Pordenone', 'Gorizia', // Friuli
-  'Trento', 'Bolzano', 'Merano', 'Rovereto', // Trentino
-  'Ancona', 'Pesaro', 'Fano', 'Urbino', // Marche
-  'Perugia', 'Terni', 'Foligno', 'Spoleto', // Umbria
-  'L\'Aquila', 'Pescara', 'Chieti', 'Teramo', // Abruzzo
-  'Campobasso', 'Isernia', // Molise
-  'Potenza', 'Matera', // Basilicata
-  'Catanzaro', 'Reggio Calabria', 'Cosenza', 'Crotone', // Calabria
+  // Italia - Liguria
+  { name: 'Genova', region: 'Liguria', country: 'IT' },
+  { name: 'La Spezia', region: 'Liguria', country: 'IT' },
+  { name: 'Savona', region: 'Liguria', country: 'IT' },
+  { name: 'Imperia', region: 'Liguria', country: 'IT' },
+  
+  // Italia - Friuli Venezia Giulia
+  { name: 'Trieste', region: 'Friuli Venezia Giulia', country: 'IT' },
+  { name: 'Udine', region: 'Friuli Venezia Giulia', country: 'IT' },
+  { name: 'Pordenone', region: 'Friuli Venezia Giulia', country: 'IT' },
+  { name: 'Gorizia', region: 'Friuli Venezia Giulia', country: 'IT' },
+  
+  // Italia - Trentino-Alto Adige
+  { name: 'Trento', region: 'Trentino-Alto Adige', country: 'IT' },
+  { name: 'Bolzano', region: 'Trentino-Alto Adige', country: 'IT' },
+  { name: 'Merano', region: 'Trentino-Alto Adige', country: 'IT' },
+  { name: 'Rovereto', region: 'Trentino-Alto Adige', country: 'IT' },
+  
+  // Italia - Marche
+  { name: 'Ancona', region: 'Marche', country: 'IT' },
+  { name: 'Pesaro', region: 'Marche', country: 'IT' },
+  { name: 'Fano', region: 'Marche', country: 'IT' },
+  { name: 'Urbino', region: 'Marche', country: 'IT' },
+  
+  // Italia - Umbria
+  { name: 'Perugia', region: 'Umbria', country: 'IT' },
+  { name: 'Terni', region: 'Umbria', country: 'IT' },
+  { name: 'Foligno', region: 'Umbria', country: 'IT' },
+  { name: 'Spoleto', region: 'Umbria', country: 'IT' },
+  
+  // Italia - Abruzzo
+  { name: "L'Aquila", region: 'Abruzzo', country: 'IT' },
+  { name: 'Pescara', region: 'Abruzzo', country: 'IT' },
+  { name: 'Chieti', region: 'Abruzzo', country: 'IT' },
+  { name: 'Teramo', region: 'Abruzzo', country: 'IT' },
+  
+  // Italia - Molise
+  { name: 'Campobasso', region: 'Molise', country: 'IT' },
+  { name: 'Isernia', region: 'Molise', country: 'IT' },
+  
+  // Italia - Basilicata
+  { name: 'Potenza', region: 'Basilicata', country: 'IT' },
+  { name: 'Matera', region: 'Basilicata', country: 'IT' },
+  
+  // Italia - Calabria
+  { name: 'Catanzaro', region: 'Calabria', country: 'IT' },
+  { name: 'Reggio Calabria', region: 'Calabria', country: 'IT' },
+  { name: 'Cosenza', region: 'Calabria', country: 'IT' },
+  { name: 'Crotone', region: 'Calabria', country: 'IT' },
 ];
 
 interface CityAutocompleteProps {
@@ -84,7 +277,7 @@ interface CityAutocompleteProps {
 
 export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città...', className }: CityAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [filteredCities, setFilteredCities] = useState<string[]>([]);
+  const [filteredCities, setFilteredCities] = useState<CityData[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -100,21 +293,28 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const filterCities = (searchTerm: string): CityData[] => {
+    const term = searchTerm.toLowerCase();
+    // Prima le città che iniziano con il termine
+    const startsWithFilter = CITIES_DATA.filter(city =>
+      city.name.toLowerCase().startsWith(term) ||
+      city.region.toLowerCase().startsWith(term)
+    );
+    // Poi quelle che lo contengono
+    const containsFilter = CITIES_DATA.filter(city =>
+      (city.name.toLowerCase().includes(term) || city.region.toLowerCase().includes(term)) &&
+      !city.name.toLowerCase().startsWith(term) &&
+      !city.region.toLowerCase().startsWith(term)
+    );
+    return [...startsWithFilter, ...containsFilter].slice(0, 10);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     onChange(inputValue);
 
     if (inputValue.length >= 1) {
-      const searchTerm = inputValue.toLowerCase();
-      // Prima le città che iniziano con il termine, poi quelle che lo contengono
-      const startsWithFilter = CITIES.filter(city =>
-        city.toLowerCase().startsWith(searchTerm)
-      );
-      const containsFilter = CITIES.filter(city =>
-        city.toLowerCase().includes(searchTerm) && 
-        !city.toLowerCase().startsWith(searchTerm)
-      );
-      const filtered = [...startsWithFilter, ...containsFilter].slice(0, 10);
+      const filtered = filterCities(inputValue);
       setFilteredCities(filtered);
       setIsOpen(filtered.length > 0);
       setHighlightedIndex(-1);
@@ -124,8 +324,8 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
     }
   };
 
-  const handleSelect = (city: string) => {
-    onChange(city);
+  const handleSelect = (city: CityData) => {
+    onChange(city.name);
     setIsOpen(false);
     setFilteredCities([]);
   };
@@ -158,16 +358,7 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
         onKeyDown={handleKeyDown}
         onFocus={() => {
           if (value.length >= 1) {
-            // Ricalcola i filtri al focus
-            const searchTerm = value.toLowerCase();
-            const startsWithFilter = CITIES.filter(city =>
-              city.toLowerCase().startsWith(searchTerm)
-            );
-            const containsFilter = CITIES.filter(city =>
-              city.toLowerCase().includes(searchTerm) && 
-              !city.toLowerCase().startsWith(searchTerm)
-            );
-            const filtered = [...startsWithFilter, ...containsFilter].slice(0, 10);
+            const filtered = filterCities(value);
             if (filtered.length > 0) {
               setFilteredCities(filtered);
               setIsOpen(true);
@@ -182,7 +373,7 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
         <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
           {filteredCities.map((city, index) => (
             <div
-              key={city}
+              key={`${city.name}-${city.region}`}
               onClick={() => handleSelect(city)}
               className={cn(
                 'flex items-center gap-2 px-3 py-2 cursor-pointer text-popover-foreground',
@@ -191,7 +382,12 @@ export function CityAutocomplete({ value, onChange, placeholder = 'Cerca città.
               )}
             >
               <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span>{city}</span>
+              <div className="flex flex-col">
+                <span className="font-medium">{city.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {city.region}, {city.country === 'CH' ? 'Svizzera' : 'Italia'}
+                </span>
+              </div>
             </div>
           ))}
         </div>
