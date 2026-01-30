@@ -9,6 +9,7 @@ interface SearchRequest {
   keywords: string[];
   cvSkills?: string[];
   targetRole?: string;
+  minResults?: number;
 }
 
 Deno.serve(async (req) => {
@@ -17,7 +18,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { location, radius, keywords, cvSkills, targetRole }: SearchRequest = await req.json();
+    const { location, radius, keywords, cvSkills, targetRole, minResults = 30 }: SearchRequest = await req.json();
 
     if (!location || !keywords || keywords.length === 0) {
       return new Response(
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('AI searching companies in:', location, 'keywords:', keywords);
+    console.log('AI deep searching companies in:', location, 'keywords:', keywords, 'minResults:', minResults);
 
     const aiGatewayUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
     const aiGatewayToken = Deno.env.get('LOVABLE_API_KEY');
@@ -35,50 +36,76 @@ Deno.serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const prompt = `Sei un agente di ricerca lavoro svizzero/italiano. Genera una lista di aziende REALI nella zona specificata che potrebbero essere rilevanti per una candidatura.
+    // Determine if it's a region/canton search
+    const isRegionSearch = location.toLowerCase().includes('tutta la regione') || 
+                           location.toLowerCase().includes('tutto il cantone') ||
+                           location.toLowerCase().includes('intera provincia');
+
+    const regionContext = isRegionSearch 
+      ? `IMPORTANTE: L'utente sta cercando in TUTTA LA REGIONE/CANTONE. Includi aziende da TUTTE le città e comuni della regione, non solo la città principale.`
+      : '';
+
+    const prompt = `Sei un agente di ricerca lavoro professionale svizzero/italiano con accesso a vaste banche dati aziendali. Il tuo compito è generare la lista PIÙ COMPLETA POSSIBILE di aziende reali.
 
 ZONA DI RICERCA:
 - Località: ${location}
 - Raggio: ${radius} km
+${regionContext}
 
-SETTORI/KEYWORDS:
+SETTORI/KEYWORDS DI RICERCA:
 ${keywords.map(k => `- ${k}`).join('\n')}
 
-${cvSkills ? `COMPETENZE DEL CANDIDATO:\n${cvSkills.map(s => `- ${s}`).join('\n')}` : ''}
+${cvSkills?.length ? `COMPETENZE DEL CANDIDATO:\n${cvSkills.map(s => `- ${s}`).join('\n')}` : ''}
 ${targetRole ? `RUOLO TARGET: ${targetRole}` : ''}
 
-FONTI DA CONSIDERARE (directory pubbliche gratuite):
-- local.ch, search.ch (Svizzera)
-- Pagine Gialle / Pagine Bianche (Italia)
-- Siti ufficiali aziendali
-- Camere di commercio locali
-- Registri imprese pubblici
+FONTI DA CONSIDERARE (tutte le directory pubbliche):
+- local.ch, search.ch, yellow.ch (Svizzera)
+- Pagine Gialle, Pagine Bianche, Virgilio Aziende (Italia)
+- Comparis.ch, tutti.ch
+- Registri delle imprese cantonali/regionali
+- Camere di commercio (CCIA)
+- Siti web ufficiali aziendali
+- LinkedIn Company Pages
+- Parchi industriali e zone artigianali locali
+- Associazioni di categoria del settore
 
-ISTRUZIONI:
-1. Genera 8-12 aziende REALISTICHE per questa zona e settore
-2. Per ogni azienda suggerisci dove l'utente può verificare i dati (sito ufficiale, local.ch, etc.)
-3. Per le email:
+ISTRUZIONI CRITICHE - RICERCA PROFONDA:
+1. Genera ALMENO ${minResults} aziende realistiche - più sono meglio è!
+2. NON limitarti alle grandi aziende - includi anche PMI, artigiani, studi professionali
+3. Copri TUTTE le città/comuni nella zona di ricerca
+4. Includi aziende di settori CORRELATI (es. se cerca logistica, includi anche trasporti, spedizioni, magazzini, e-commerce)
+5. Per le email:
    - Se conosci con certezza l'email pubblica, includila
-   - Se non sei sicuro, metti null e indica "verificare su sito ufficiale"
-   - Preferisci: jobs@ / hr@ / recruiting@ se disponibili, altrimenti info@
-4. NON INVENTARE email - meglio null che un'email falsa
-5. Indica sempre la fonte suggerita per verifica
+   - Se non sei sicuro, metti null
+   - Preferisci: jobs@ / hr@ / recruiting@ / personale@ se disponibili
+6. NON INVENTARE email - meglio null che un'email falsa
+7. Includi il sito web quando possibile
+8. Varia i tipi di azienda: grandi gruppi, medie imprese, piccole aziende, studi, cooperative
 
-Rispondi SOLO con un array JSON valido (senza markdown, senza backticks):
+DIVERSIFICA LE TIPOLOGIE:
+- Aziende multinazionali con sede locale
+- Medie imprese regionali
+- Piccole imprese locali
+- Artigiani e studi professionali
+- Cooperative e consorzi
+- Agenzie e studi di consulenza
+- Enti e organizzazioni del settore
+
+Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno ${minResults} aziende):
 [
   {
     "name": "Nome Azienda SA",
     "sector": "Settore principale",
-    "address": "Indirizzo approssimativo",
+    "address": "Indirizzo completo se disponibile",
     "city": "Città",
     "website": "https://www.esempio.ch",
     "email": "info@esempio.ch o null",
     "phone": "+41 XX XXX XX XX o null",
     "contact_type": "generic|hr|jobs|form_only|phone_only",
-    "source": "Fonte: local.ch / sito ufficiale / registro imprese",
+    "source": "Fonte suggerita per verifica",
     "match_score": 85,
     "match_reasons": ["motivo1", "motivo2"],
-    "verification_note": "Verificare email su pagina Contatti del sito ufficiale"
+    "verification_note": "Nota per verifica contatti"
   }
 ]`;
 
@@ -92,12 +119,16 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks):
         model: 'google/gemini-2.5-flash',
         messages: [
           {
+            role: 'system',
+            content: 'Sei un database vivente di aziende svizzere e italiane. Conosci migliaia di aziende in ogni regione. Genera sempre liste complete e dettagliate, mai limitate. Preferisci la quantità mantenendo la qualità.'
+          },
+          {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.8,
-        max_tokens: 4000
+        temperature: 0.9,
+        max_tokens: 16000
       }),
     });
 
@@ -127,13 +158,27 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks):
       throw new Error('Failed to parse companies data from AI response');
     }
 
+    // Validate and clean companies
+    if (!Array.isArray(companies)) {
+      companies = [companies];
+    }
+
+    // Remove duplicates by name
+    const seen = new Set();
+    companies = companies.filter((c: any) => {
+      const key = c.name?.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     // Sort by match_score
     companies.sort((a: any, b: any) => (b.match_score || 0) - (a.match_score || 0));
 
-    console.log('Found', companies.length, 'companies');
+    console.log('Found', companies.length, 'companies (requested min:', minResults, ')');
 
     return new Response(
-      JSON.stringify({ success: true, data: companies }),
+      JSON.stringify({ success: true, data: companies, total: companies.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: unknown) {

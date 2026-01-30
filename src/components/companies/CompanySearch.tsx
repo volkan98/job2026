@@ -58,6 +58,7 @@ export function CompanySearch() {
   const [searchLocation, setSearchLocation] = useState(cvData?.citta || '');
   const [locationSelection, setLocationSelection] = useState<LocationSelection | null>(null);
   const [searchRadius, setSearchRadius] = useState('30');
+  const [minResults, setMinResults] = useState('30');
   const [selectedSector, setSelectedSector] = useState('Tutti i settori');
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [showOnlyWithEmail, setShowOnlyWithEmail] = useState(false);
@@ -100,7 +101,8 @@ export function CompanySearch() {
         parseInt(searchRadius),
         keywords,
         cvData?.competenze,
-        undefined
+        undefined,
+        parseInt(minResults)
       );
 
       if (!result.success || !result.data) {
@@ -218,6 +220,26 @@ export function CompanySearch() {
                   <SelectItem value="30">30 km</SelectItem>
                   <SelectItem value="50">50 km</SelectItem>
                   <SelectItem value="100">100 km</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                🎯 Numero minimo di aziende da cercare
+              </label>
+              <Select value={minResults} onValueChange={setMinResults}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="20">20 aziende (veloce)</SelectItem>
+                  <SelectItem value="30">30 aziende (standard)</SelectItem>
+                  <SelectItem value="50">50 aziende (approfondita)</SelectItem>
+                  <SelectItem value="75">75 aziende (molto approfondita)</SelectItem>
+                  <SelectItem value="100">100 aziende (massima)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
