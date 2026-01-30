@@ -186,19 +186,30 @@ export function CompanySearch() {
         setOriginCity(result.originCity);
       }
 
-      const mappedAziende: Azienda[] = result.data.map((company: Company, index: number) => ({
-        id: String(index + 1),
-        nome: company.name,
-        indirizzo: company.address || '',
-        citta: company.city || searchLocation,
-        sito: company.website || '',
-        email: company.email || null,
-        telefono: company.phone || '',
-        settore: company.sector || 'Altro',
-        fonte: company.source || 'AI Search',
-        distanza: company.distance_km || 0,
-        tempoPercorrenza: company.travel_time || '',
-      }));
+      const mappedAziende: Azienda[] = result.data.map((company: Company, index: number) => {
+        // Normalizza l'email: gestisce null, undefined, stringa vuota e stringa "null"
+        const normalizedEmail = company.email && 
+          company.email.trim() !== '' && 
+          company.email.toLowerCase() !== 'null' &&
+          company.email.toLowerCase() !== 'n/a' &&
+          company.email.toLowerCase() !== 'undefined'
+          ? company.email.trim() 
+          : null;
+        
+        return {
+          id: String(index + 1),
+          nome: company.name,
+          indirizzo: company.address || '',
+          citta: company.city || searchLocation,
+          sito: company.website || '',
+          email: normalizedEmail,
+          telefono: company.phone || '',
+          settore: company.sector || 'Altro',
+          fonte: company.source || 'AI Search',
+          distanza: company.distance_km || 0,
+          tempoPercorrenza: company.travel_time || '',
+        };
+      });
 
       // Le aziende sono già ordinate per distanza dal backend
       setAziende(mappedAziende);
