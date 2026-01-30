@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
 import { aiAgent, EmailTemplate as AIEmailTemplate } from '@/lib/api/ai-agent';
+import { useEmailOAuth, EmailProvider } from '@/hooks/useEmailOAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,7 +29,8 @@ import {
   Ban,
   Copy,
   ExternalLink,
-  History
+  History,
+  Unlink
 } from 'lucide-react';
 
 type EmailStyle = 'breve' | 'standard' | 'formale';
@@ -43,12 +45,23 @@ interface LocalEmailTemplate {
 export function EmailComposer() {
   const { cvData, aziendeSelezionate, logInvii, addLogInvio, setCurrentStep } = useCVContext();
   const { toast } = useToast();
+  const { 
+    connectedProviders, 
+    isLoading: isOAuthLoading, 
+    isConnecting,
+    connect, 
+    disconnect, 
+    sendEmail: sendOAuthEmail, 
+    isConnected, 
+    getConnectedEmail,
+    getActiveProvider 
+  } = useEmailOAuth();
+  
   const [emailStyle, setEmailStyle] = useState<EmailStyle>('standard');
   const [currentEmail, setCurrentEmail] = useState<LocalEmailTemplate | null>(null);
   const [selectedAziendaId, setSelectedAziendaId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [emailProvider, setEmailProvider] = useState<'gmail' | 'outlook' | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<{
     isDuplicate: boolean;
     type?: string;
@@ -165,17 +178,22 @@ export function EmailComposer() {
     }
   }, [selectedAzienda, cvData]);
 
-  const handleConnectEmail = (provider: 'gmail' | 'outlook') => {
-    // This would trigger OAuth flow in production
-    setEmailProvider(provider);
-    toast({
-      title: 'Email connessa',
-      description: `Account ${provider === 'gmail' ? 'Gmail' : 'Outlook'} collegato con successo.`,
-    });
+  const handleConnectEmail = async (provider: EmailProvider) => {
+    await connect(provider);
   };
 
   const handleSendEmail = async () => {
     if (!selectedAzienda || !currentEmail || !selectedAzienda.email) return;
+
+    const activeProvider = getActiveProvider();
+    if (!activeProvider) {
+      toast({
+        title: 'Account non connesso',
+        description: 'Connetti Gmail o Outlook per inviare email.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     if (duplicateWarning?.isDuplicate) {
       toast({
@@ -189,8 +207,18 @@ export function EmailComposer() {
     setIsSending(true);
     
     try {
-      // Simulate sending email
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const fullBody = `${currentEmail.corpo}\n\n${currentEmail.firma}`;
+      
+      const result = await sendOAuthEmail(
+        activeProvider,
+        selectedAzienda.email,
+        currentEmail.oggetto,
+        fullBody
+      );
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
       // Record the sent email in database
       await aiAgent.recordSentEmail(
@@ -214,7 +242,7 @@ export function EmailComposer() {
 
       toast({
         title: 'Email inviata!',
-        description: `Email inviata a ${selectedAzienda.nome}`,
+        description: `Email inviata a ${selectedAzienda.nome} tramite ${activeProvider === 'gmail' ? 'Gmail' : 'Outlook'}`,
       });
       
       // Move to next company
@@ -272,18 +300,27 @@ export function EmailComposer() {
       </div>
 
       {/* Email Connection */}
-      {!emailProvider && (
+      {isConnecting && (
+        <Alert className="bg-primary/5 border-primary/20">
+          <Loader2 className="h-4 w-4 text-primary animate-spin" />
+          <AlertDescription>
+            Connessione in corso...
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!isConnecting && connectedProviders.length === 0 && (
         <Alert className="bg-primary/5 border-primary/20">
           <Mail className="h-4 w-4 text-primary" />
           <AlertDescription>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <span>Collega il tuo account email per inviare direttamente dall'app</span>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => handleConnectEmail('gmail')}>
-                  Connetti Gmail
+                <Button size="sm" variant="outline" onClick={() => handleConnectEmail('gmail')} disabled={isOAuthLoading}>
+                  {isOAuthLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connetti Gmail'}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => handleConnectEmail('outlook')}>
-                  Connetti Outlook
+                <Button size="sm" variant="outline" onClick={() => handleConnectEmail('outlook')} disabled={isOAuthLoading}>
+                  {isOAuthLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connetti Outlook'}
                 </Button>
               </div>
             </div>
@@ -291,12 +328,32 @@ export function EmailComposer() {
         </Alert>
       )}
 
-      {emailProvider && (
+      {!isConnecting && connectedProviders.length > 0 && (
         <Alert className="bg-green-500/10 border-green-500/30">
           <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-700">
-            Connesso a {emailProvider === 'gmail' ? 'Gmail' : 'Outlook'}. 
-            Inviate: {sentCount} / Rimanenti: {aziendeSelezionate.length - sentCount}
+          <AlertDescription>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <span className="text-green-700">
+                Connesso a {connectedProviders.map(p => 
+                  `${p.provider === 'gmail' ? 'Gmail' : 'Outlook'} (${p.email})`
+                ).join(', ')}. 
+                Inviate: {sentCount} / Rimanenti: {aziendeSelezionate.length - sentCount}
+              </span>
+              <div className="flex gap-2">
+                {connectedProviders.map(p => (
+                  <Button 
+                    key={p.provider}
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => disconnect(p.provider as EmailProvider)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Unlink className="h-4 w-4 mr-1" />
+                    Disconnetti {p.provider === 'gmail' ? 'Gmail' : 'Outlook'}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -461,6 +518,27 @@ export function EmailComposer() {
                       <span className="text-sm text-muted-foreground">Allegato:</span>
                       <Badge variant="outline">CV da allegare manualmente</Badge>
                     </div>
+
+                    {/* Send Email Button - OAuth */}
+                    {connectedProviders.length > 0 && (
+                      <Button 
+                        className="w-full"
+                        onClick={handleSendEmail}
+                        disabled={isSending || duplicateWarning?.isDuplicate}
+                      >
+                        {isSending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Invio in corso...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Invia Email tramite {getActiveProvider() === 'gmail' ? 'Gmail' : 'Outlook'}
+                          </>
+                        )}
+                      </Button>
+                    )}
 
                     {/* Copy / Mailto buttons */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
