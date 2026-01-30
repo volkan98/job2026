@@ -65,6 +65,7 @@ export function CompanySearch() {
   const [aziende, setAziende] = useState<Azienda[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [originCity, setOriginCity] = useState(cvData?.citta || '');
 
   const toggleKeyword = (keyword: string) => {
     if (selectedKeywords.includes(keyword)) {
@@ -96,17 +97,26 @@ export function CompanySearch() {
     setIsSearching(true);
     
     try {
+      // Usa la città del CV come punto di origine per il calcolo distanza
+      const userCity = cvData?.citta || '';
+      
       const result = await aiAgent.searchCompanies(
         locationQuery,
         parseInt(searchRadius),
         keywords,
         cvData?.competenze,
         undefined,
-        parseInt(minResults)
+        parseInt(minResults),
+        userCity
       );
 
       if (!result.success || !result.data) {
         throw new Error(result.error || 'Errore nella ricerca');
+      }
+
+      // Salva la città di origine per la visualizzazione
+      if (result.originCity) {
+        setOriginCity(result.originCity);
       }
 
       const mappedAziende: Azienda[] = result.data.map((company: Company, index: number) => ({
@@ -119,15 +129,16 @@ export function CompanySearch() {
         telefono: company.phone || '',
         settore: company.sector || 'Altro',
         fonte: company.source || 'AI Search',
-        distanza: Math.floor(Math.random() * parseInt(searchRadius)),
+        distanza: company.distance_km || 0,
       }));
 
+      // Le aziende sono già ordinate per distanza dal backend
       setAziende(mappedAziende);
       setHasSearched(true);
       
       toast({
         title: 'Ricerca completata!',
-        description: `Trovate ${mappedAziende.length} aziende nella zona.`,
+        description: `Trovate ${mappedAziende.length} aziende nella zona, ordinate per distanza da ${userCity || 'te'}.`,
       });
     } catch (error: any) {
       console.error('Search error:', error);
@@ -350,9 +361,11 @@ export function CompanySearch() {
                             <Building2 className="h-4 w-4 text-primary shrink-0" />
                             {azienda.nome}
                           </h3>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
                             <Badge variant="secondary">{azienda.settore}</Badge>
-                            <Badge variant="outline">{azienda.distanza} km</Badge>
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                              📍 {azienda.distanza} km da {originCity}
+                            </Badge>
                           </div>
                         </div>
                         
