@@ -1,9 +1,13 @@
-import { CVProvider, useCVContext } from '@/contexts/CVContext';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useCVContext } from '@/contexts/CVContext';
+import { useAuth } from '@/hooks/useAuth';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { CVUploader } from '@/components/cv/CVUploader';
 import { CVSummary } from '@/components/cv/CVSummary';
 import { CompanySearch } from '@/components/companies/CompanySearch';
 import { EmailComposer } from '@/components/email/EmailComposer';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function MainContent() {
   const { currentStep } = useCVContext();
@@ -23,12 +27,35 @@ function MainContent() {
 }
 
 const Index = () => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="space-y-4 w-full max-w-md p-8">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-8 w-3/4" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
-    <CVProvider>
-      <AppLayout>
-        <MainContent />
-      </AppLayout>
-    </CVProvider>
+    <AppLayout>
+      <MainContent />
+    </AppLayout>
   );
 };
 

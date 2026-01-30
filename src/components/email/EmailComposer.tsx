@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
-import { EmailTemplate } from '@/types/cv';
+import { aiAgent, EmailTemplate as AIEmailTemplate } from '@/lib/api/ai-agent';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Mail, 
   Send, 
@@ -20,139 +21,220 @@ import {
   Clock,
   XCircle,
   Paperclip,
-  User
+  User,
+  Loader2,
+  Sparkles,
+  Ban
 } from 'lucide-react';
 
 type EmailStyle = 'breve' | 'standard' | 'formale';
 
-function generateEmail(style: EmailStyle, cvData: any, azienda?: string): EmailTemplate {
-  const nome = `${cvData.nome} ${cvData.cognome}`;
-  const competenze = cvData.competenze.slice(0, 3).join(', ');
-  
-  const templates: Record<EmailStyle, EmailTemplate> = {
-    breve: {
-      oggetto: `Candidatura spontanea - ${cvData.esperienze?.[0]?.ruolo || 'Profilo professionale'}`,
-      corpo: `Gentili Signori${azienda ? ` di ${azienda}` : ''},
-
-mi permetto di inviarVi la mia candidatura spontanea per eventuali posizioni aperte presso la Vostra azienda.
-
-Ho ${cvData.esperienze?.length + 3} anni di esperienza nel settore, con competenze in ${competenze}.
-
-Allego il mio CV per la Vostra valutazione e resto a disposizione per un colloquio conoscitivo.
-
-Cordiali saluti`,
-      firma: `${nome}\n${cvData.email}\n${cvData.telefono}\n${cvData.citta}`,
-    },
-    standard: {
-      oggetto: `Candidatura - ${cvData.esperienze?.[0]?.ruolo || 'Professionista settore industriale'}`,
-      corpo: `Spett.le ${azienda || 'Azienda'},
-
-con la presente mi permetto di sottoporre alla Vostra cortese attenzione la mia candidatura per eventuali posizioni aperte o future opportunità lavorative.
-
-${cvData.profilo}
-
-Nel corso della mia carriera ho maturato significative esperienze come ${cvData.esperienze?.[0]?.ruolo} presso ${cvData.esperienze?.[0]?.azienda}, sviluppando competenze in:
-${cvData.competenze.slice(0, 5).map((c: string) => `• ${c}`).join('\n')}
-
-Sono attualmente disponibile e residente nella zona di ${cvData.citta}, il che mi consentirebbe di raggiungere agevolmente la Vostra sede.
-
-Allego il mio curriculum vitae e resto a completa disposizione per un colloquio conoscitivo, durante il quale potrò illustrarVi più nel dettaglio le mie esperienze e motivazioni.
-
-RingraziandoVi per l'attenzione, porgo cordiali saluti`,
-      firma: `${nome}\n${cvData.email}\n${cvData.telefono}\n${cvData.citta}`,
-    },
-    formale: {
-      oggetto: `Candidatura spontanea per posizioni in ambito ${cvData.esperienze?.[0]?.ruolo?.split(' ')[0] || 'produzione'}`,
-      corpo: `Spett.le Direzione Risorse Umane
-${azienda || ''}
-
-Oggetto: Candidatura spontanea
-
-Con la presente, desidero sottoporre alla Vostra cortese attenzione la mia candidatura per eventuali posizioni attualmente vacanti o che si renderanno disponibili in futuro presso la Vostra stimata Azienda.
-
-Mi chiamo ${nome} e sono un professionista con oltre ${cvData.esperienze?.length + 3} anni di esperienza nel settore industriale. Attualmente ricopro il ruolo di ${cvData.esperienze?.[0]?.ruolo} e ho sviluppato una solida expertise nelle seguenti aree:
-
-${cvData.competenze.map((c: string) => `• ${c}`).join('\n')}
-
-Il mio percorso professionale mi ha permesso di acquisire una visione completa dei processi ${cvData.settore || 'produttivi'} e di sviluppare capacità di problem solving e gestione team.
-
-${cvData.profilo}
-
-Sono residente in ${cvData.citta} e sarei disponibile a iniziare immediatamente, con disponibilità anche a trasferte occasionali se richiesto.
-
-Allego alla presente il mio curriculum vitae completo e mi rendo disponibile per un colloquio conoscitivo presso la Vostra sede, nel quale potrò illustrare più dettagliatamente le mie esperienze, competenze e motivazioni.
-
-In attesa di un Vostro cortese riscontro, porgo distinti saluti.`,
-      firma: `${nome}\nTel: ${cvData.telefono}\nEmail: ${cvData.email}\nResidenza: ${cvData.citta}, ${cvData.cap}`,
-    },
-  };
-
-  return templates[style];
+interface LocalEmailTemplate {
+  oggetto: string;
+  corpo: string;
+  firma: string;
+  matchPoints?: string[];
 }
 
 export function EmailComposer() {
   const { cvData, aziendeSelezionate, logInvii, addLogInvio, setCurrentStep } = useCVContext();
+  const { toast } = useToast();
   const [emailStyle, setEmailStyle] = useState<EmailStyle>('standard');
-  const [currentEmail, setCurrentEmail] = useState<EmailTemplate | null>(null);
+  const [currentEmail, setCurrentEmail] = useState<LocalEmailTemplate | null>(null);
   const [selectedAziendaId, setSelectedAziendaId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [emailProvider, setEmailProvider] = useState<'gmail' | 'outlook' | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    isDuplicate: boolean;
+    type?: string;
+    lastDate?: string;
+    originalCompany?: string;
+  } | null>(null);
 
   const selectedAzienda = aziendeSelezionate.find(a => a.id === selectedAziendaId);
 
+  // Check for duplicates when selecting a company
   useEffect(() => {
-    if (cvData) {
-      setCurrentEmail(generateEmail(emailStyle, cvData, selectedAzienda?.nome));
-    }
-  }, [emailStyle, cvData, selectedAzienda]);
+    const checkDuplicate = async () => {
+      if (!selectedAzienda?.email) {
+        setDuplicateWarning(null);
+        return;
+      }
 
+      const result = await aiAgent.checkDuplicate(
+        selectedAzienda.email,
+        selectedAzienda.nome,
+        true
+      );
+
+      if (result.isDuplicate) {
+        setDuplicateWarning({
+          isDuplicate: true,
+          type: result.duplicateType,
+          lastDate: result.lastSentDate,
+          originalCompany: result.originalCompany,
+        });
+      } else {
+        setDuplicateWarning(null);
+      }
+    };
+
+    checkDuplicate();
+  }, [selectedAzienda]);
+
+  // Set first company as selected
   useEffect(() => {
     if (aziendeSelezionate.length > 0 && !selectedAziendaId) {
       setSelectedAziendaId(aziendeSelezionate[0].id);
     }
   }, [aziendeSelezionate, selectedAziendaId]);
 
-  const handleRegenerate = () => {
-    if (cvData) {
-      setCurrentEmail(generateEmail(emailStyle, cvData, selectedAzienda?.nome));
+  // Generate email when company or style changes
+  const handleGenerateEmail = async () => {
+    if (!cvData || !selectedAzienda) return;
+
+    setIsGenerating(true);
+    
+    try {
+      const company = {
+        name: selectedAzienda.nome,
+        sector: selectedAzienda.settore,
+        city: selectedAzienda.citta,
+        website: selectedAzienda.sito,
+      };
+
+      const result = await aiAgent.generateEmail(
+        company,
+        {
+          nome: cvData.nome,
+          cognome: cvData.cognome,
+          email: cvData.email,
+          telefono: cvData.telefono,
+          citta: cvData.citta,
+          profilo: cvData.profilo,
+          competenze: cvData.competenze,
+        },
+        emailStyle,
+        undefined,
+        'immediata'
+      );
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Errore nella generazione');
+      }
+
+      setCurrentEmail({
+        oggetto: result.data.oggetto,
+        corpo: result.data.corpo,
+        firma: result.data.firma,
+        matchPoints: result.data.matchPoints,
+      });
+
+      toast({
+        title: 'Email generata!',
+        description: `Email ${emailStyle} personalizzata per ${selectedAzienda.nome}`,
+      });
+    } catch (error: any) {
+      console.error('Error generating email:', error);
+      toast({
+        title: 'Errore',
+        description: error.message || 'Impossibile generare l\'email.',
+        variant: 'destructive',
+      });
+      
+      // Fallback to basic template
+      setCurrentEmail({
+        oggetto: `Candidatura spontanea - ${cvData.esperienze?.[0]?.ruolo || 'Professionista'}`,
+        corpo: `Gentili Signori di ${selectedAzienda.nome},\n\nmi permetto di inviarVi la mia candidatura spontanea.\n\n${cvData.profilo}\n\nResto a disposizione per un colloquio.\n\nCordiali saluti`,
+        firma: `${cvData.nome} ${cvData.cognome}\n${cvData.email}\n${cvData.telefono}`,
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
+
+  // Auto-generate when company changes
+  useEffect(() => {
+    if (selectedAzienda && cvData && !currentEmail) {
+      handleGenerateEmail();
+    }
+  }, [selectedAzienda, cvData]);
 
   const handleConnectEmail = (provider: 'gmail' | 'outlook') => {
     // This would trigger OAuth flow in production
     setEmailProvider(provider);
+    toast({
+      title: 'Email connessa',
+      description: `Account ${provider === 'gmail' ? 'Gmail' : 'Outlook'} collegato con successo.`,
+    });
   };
 
   const handleSendEmail = async () => {
-    if (!selectedAzienda || !currentEmail) return;
+    if (!selectedAzienda || !currentEmail || !selectedAzienda.email) return;
+
+    if (duplicateWarning?.isDuplicate) {
+      toast({
+        title: 'Attenzione',
+        description: `Hai già contattato questa azienda il ${new Date(duplicateWarning.lastDate!).toLocaleDateString('it-IT')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
     
     setIsSending(true);
     
-    // Simulate sending
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    addLogInvio({
-      id: Date.now().toString(),
-      data: new Date(),
-      destinatario: selectedAzienda.nome,
-      emailDestinatario: selectedAzienda.email!,
-      oggetto: currentEmail.oggetto,
-      stato: 'inviato',
-    });
-    
-    // Move to next company
-    const currentIndex = aziendeSelezionate.findIndex(a => a.id === selectedAziendaId);
-    if (currentIndex < aziendeSelezionate.length - 1) {
-      setSelectedAziendaId(aziendeSelezionate[currentIndex + 1].id);
+    try {
+      // Simulate sending email
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Record the sent email in database
+      await aiAgent.recordSentEmail(
+        null,
+        selectedAzienda.nome,
+        selectedAzienda.email,
+        currentEmail.oggetto,
+        currentEmail.corpo,
+        'v1'
+      );
+
+      // Add to local log
+      addLogInvio({
+        id: Date.now().toString(),
+        data: new Date(),
+        destinatario: selectedAzienda.nome,
+        emailDestinatario: selectedAzienda.email,
+        oggetto: currentEmail.oggetto,
+        stato: 'inviato',
+      });
+
+      toast({
+        title: 'Email inviata!',
+        description: `Email inviata a ${selectedAzienda.nome}`,
+      });
+      
+      // Move to next company
+      const currentIndex = aziendeSelezionate.findIndex(a => a.id === selectedAziendaId);
+      if (currentIndex < aziendeSelezionate.length - 1) {
+        setSelectedAziendaId(aziendeSelezionate[currentIndex + 1].id);
+        setCurrentEmail(null); // Reset to trigger new generation
+      }
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      toast({
+        title: 'Errore invio',
+        description: error.message || 'Impossibile inviare l\'email.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
     }
-    
-    setIsSending(false);
   };
 
   if (!cvData) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted">Nessun CV caricato.</p>
+        <p className="text-muted-foreground">Nessun CV caricato.</p>
         <Button onClick={() => setCurrentStep(0)} className="mt-4">
           Carica CV
         </Button>
@@ -163,7 +245,7 @@ export function EmailComposer() {
   if (aziendeSelezionate.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted">Nessuna azienda selezionata.</p>
+        <p className="text-muted-foreground">Nessuna azienda selezionata.</p>
         <Button onClick={() => setCurrentStep(2)} className="mt-4">
           Trova Aziende
         </Button>
@@ -171,14 +253,17 @@ export function EmailComposer() {
     );
   }
 
+  const sentCount = logInvii.filter(l => l.stato === 'inviato').length;
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-          Componi & Invia Email
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground flex items-center justify-center gap-2">
+          <Sparkles className="h-6 w-6 text-primary" />
+          AI Email Personalizzate
         </h2>
-        <p className="text-muted">
-          Personalizza l'email e inviala alle aziende selezionate
+        <p className="text-muted-foreground">
+          L'AI genera email uniche per ogni azienda basate sul tuo CV
         </p>
       </div>
 
@@ -203,10 +288,11 @@ export function EmailComposer() {
       )}
 
       {emailProvider && (
-        <Alert className="bg-green-50 border-green-200">
+        <Alert className="bg-green-500/10 border-green-500/30">
           <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">
-            Connesso a {emailProvider === 'gmail' ? 'Gmail' : 'Outlook'}. Puoi inviare email direttamente.
+          <AlertDescription className="text-green-700">
+            Connesso a {emailProvider === 'gmail' ? 'Gmail' : 'Outlook'}. 
+            Inviate: {sentCount} / Rimanenti: {aziendeSelezionate.length - sentCount}
           </AlertDescription>
         </Alert>
       )}
@@ -230,7 +316,10 @@ export function EmailComposer() {
                   return (
                     <button
                       key={azienda.id}
-                      onClick={() => setSelectedAziendaId(azienda.id)}
+                      onClick={() => {
+                        setSelectedAziendaId(azienda.id);
+                        setCurrentEmail(null);
+                      }}
                       className={`w-full text-left p-3 rounded-lg transition-all ${
                         isSelected 
                           ? 'bg-primary/10 border border-primary' 
@@ -242,7 +331,7 @@ export function EmailComposer() {
                           <p className="font-medium text-foreground truncate">
                             {azienda.nome}
                           </p>
-                          <p className="text-xs text-muted truncate">
+                          <p className="text-xs text-muted-foreground truncate">
                             {azienda.email}
                           </p>
                         </div>
@@ -271,8 +360,14 @@ export function EmailComposer() {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <CardTitle className="text-lg">Componi Email</CardTitle>
-              <Tabs value={emailStyle} onValueChange={v => setEmailStyle(v as EmailStyle)}>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Email AI
+              </CardTitle>
+              <Tabs value={emailStyle} onValueChange={v => {
+                setEmailStyle(v as EmailStyle);
+                setCurrentEmail(null);
+              }}>
                 <TabsList>
                   <TabsTrigger value="breve">Breve</TabsTrigger>
                   <TabsTrigger value="standard">Standard</TabsTrigger>
@@ -282,79 +377,119 @@ export function EmailComposer() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {selectedAzienda && currentEmail && (
+            {duplicateWarning?.isDuplicate && (
+              <Alert variant="destructive">
+                <Ban className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Già contattata!</strong> Hai inviato a {duplicateWarning.type === 'exact_email' ? 'questa email' : 'questo dominio'} 
+                  {duplicateWarning.lastDate && ` il ${new Date(duplicateWarning.lastDate).toLocaleDateString('it-IT')}`}
+                  {duplicateWarning.originalCompany && ` (${duplicateWarning.originalCompany})`}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {selectedAzienda && (
               <>
                 <div className="flex items-center gap-2 p-3 bg-accent rounded-lg">
-                  <User className="h-4 w-4 text-muted" />
-                  <span className="text-sm text-muted">A:</span>
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">A:</span>
                   <span className="font-medium">{selectedAzienda.email}</span>
                   <Badge variant="secondary" className="ml-auto">
-                    {selectedAzienda.nome}
+                    {selectedAzienda.settore}
                   </Badge>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1 block">
-                    Oggetto
-                  </label>
-                  <Input
-                    value={currentEmail.oggetto}
-                    onChange={e => setCurrentEmail({ ...currentEmail, oggetto: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1 block">
-                    Corpo Email
-                  </label>
-                  <Textarea
-                    value={currentEmail.corpo}
-                    onChange={e => setCurrentEmail({ ...currentEmail, corpo: e.target.value })}
-                    rows={12}
-                    className="font-sans"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1 block">
-                    Firma
-                  </label>
-                  <Textarea
-                    value={currentEmail.firma}
-                    onChange={e => setCurrentEmail({ ...currentEmail, firma: e.target.value })}
-                    rows={4}
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 p-3 bg-accent/50 rounded-lg">
-                  <Paperclip className="h-4 w-4 text-muted" />
-                  <span className="text-sm text-muted">Allegato:</span>
-                  <Badge variant="outline">CV allegato</Badge>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button variant="outline" onClick={handleRegenerate}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Rigenera
-                  </Button>
-                  <Button 
-                    className="flex-1"
-                    onClick={handleSendEmail}
-                    disabled={!emailProvider || isSending}
-                  >
-                    {isSending ? (
-                      <>
-                        <span className="animate-spin mr-2">⏳</span>
-                        Invio in corso...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Invia Email
-                      </>
+                {isGenerating ? (
+                  <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-muted-foreground">L'AI sta generando un'email personalizzata...</p>
+                  </div>
+                ) : currentEmail ? (
+                  <>
+                    {currentEmail.matchPoints && currentEmail.matchPoints.length > 0 && (
+                      <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                        <p className="text-sm font-medium text-green-700 mb-2">Punti di match trovati:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {currentEmail.matchPoints.map((point, i) => (
+                            <Badge key={i} variant="outline" className="text-green-700 border-green-500/50">
+                              ✓ {point}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     )}
-                  </Button>
-                </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">
+                        Oggetto
+                      </label>
+                      <Input
+                        value={currentEmail.oggetto}
+                        onChange={e => setCurrentEmail({ ...currentEmail, oggetto: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">
+                        Corpo Email
+                      </label>
+                      <Textarea
+                        value={currentEmail.corpo}
+                        onChange={e => setCurrentEmail({ ...currentEmail, corpo: e.target.value })}
+                        rows={12}
+                        className="font-sans"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">
+                        Firma
+                      </label>
+                      <Textarea
+                        value={currentEmail.firma}
+                        onChange={e => setCurrentEmail({ ...currentEmail, firma: e.target.value })}
+                        rows={4}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 p-3 bg-accent/50 rounded-lg">
+                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Allegato:</span>
+                      <Badge variant="outline">CV allegato</Badge>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Button variant="outline" onClick={handleGenerateEmail} disabled={isGenerating}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+                        Rigenera
+                      </Button>
+                      <Button 
+                        className="flex-1"
+                        onClick={handleSendEmail}
+                        disabled={!emailProvider || isSending || duplicateWarning?.isDuplicate}
+                      >
+                        {isSending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Invio in corso...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Invia Email
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <Button onClick={handleGenerateEmail}>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Genera Email AI
+                    </Button>
+                  </div>
+                )}
               </>
             )}
           </CardContent>
@@ -367,7 +502,7 @@ export function EmailComposer() {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
-              Storico Invii
+              Storico Invii ({logInvii.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -385,11 +520,11 @@ export function EmailComposer() {
                     )}
                     <div>
                       <p className="font-medium text-foreground">{log.destinatario}</p>
-                      <p className="text-xs text-muted">{log.emailDestinatario}</p>
+                      <p className="text-xs text-muted-foreground">{log.emailDestinatario}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-muted">
+                    <p className="text-sm text-muted-foreground">
                       {log.data.toLocaleDateString('it-IT', { 
                         day: '2-digit', 
                         month: '2-digit',
@@ -412,8 +547,8 @@ export function EmailComposer() {
       <Alert>
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Suggerimenti anti-spam:</strong> Le email vengono inviate singolarmente (niente CC visibile). 
-          Limite consigliato: max 20 email/ora. Non inviare email identiche a troppe aziende.
+          <strong>Anti-spam:</strong> Email inviate singolarmente (no CC). 
+          Limite: max 20/ora. L'AI evita email duplicate e traccia gli invii.
         </AlertDescription>
       </Alert>
 
