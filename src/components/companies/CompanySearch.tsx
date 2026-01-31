@@ -182,7 +182,8 @@ export function CompanySearch() {
         cvData?.competenze,
         undefined,
         parseInt(minResults),
-        userCity
+        userCity,
+        onlySelectedCity // Passa il filtro "solo città selezionata" al backend
       );
 
       if (!result.success || !result.data) {

@@ -11,6 +11,7 @@ interface SearchRequest {
   targetRole?: string;
   minResults?: number;
   userCity?: string; // Città di residenza dell'utente per calcolo distanza
+  onlySelectedCity?: boolean; // Se true, cerca SOLO nella città selezionata
 }
 
 Deno.serve(async (req) => {
@@ -19,7 +20,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { location, radius, keywords, cvSkills, targetRole, minResults = 30, userCity }: SearchRequest = await req.json();
+    const { location, radius, keywords, cvSkills, targetRole, minResults = 30, userCity, onlySelectedCity = false }: SearchRequest = await req.json();
 
     if (!location || !keywords || keywords.length === 0) {
       return new Response(
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
     }
 
     const originCity = userCity || location;
-    console.log('AI deep searching companies in:', location, 'from:', originCity, 'keywords:', keywords, 'minResults:', minResults);
+    console.log('AI deep searching companies in:', location, 'from:', originCity, 'keywords:', keywords, 'minResults:', minResults, 'onlySelectedCity:', onlySelectedCity);
 
     const aiGatewayUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
     const aiGatewayToken = Deno.env.get('LOVABLE_API_KEY');
@@ -43,17 +44,29 @@ Deno.serve(async (req) => {
                            location.toLowerCase().includes('tutto il cantone') ||
                            location.toLowerCase().includes('intera provincia');
 
-    const regionContext = isRegionSearch 
-      ? `IMPORTANTE: L'utente sta cercando in TUTTA LA REGIONE/CANTONE. Includi aziende da TUTTE le città e comuni della regione, non solo la città principale.`
-      : '';
+    // If onlySelectedCity is true, override region search and force single city
+    let locationContext = '';
+    if (onlySelectedCity) {
+      locationContext = `ATTENZIONE CRITICA: L'utente ha selezionato "SOLO CITTÀ SELEZIONATA".
+⚠️ Devi cercare aziende ESCLUSIVAMENTE nella città di "${location}" - nessun'altra città!
+⚠️ NON includere aziende di città vicine, frazioni, o comuni limitrofi.
+⚠️ La città nell'output JSON deve essere ESATTAMENTE "${location}" o al massimo una via/zona di "${location}".
+⚠️ Se non trovi abbastanza aziende in questa città specifica, restituisci meno risultati ma NON espandere ad altre città.`;
+    } else if (isRegionSearch) {
+      locationContext = `IMPORTANTE: L'utente sta cercando in TUTTA LA REGIONE/CANTONE. Includi aziende da TUTTE le città e comuni della regione, non solo la città principale.`;
+    } else {
+      locationContext = `Cerca aziende nella zona di ${location} e comuni limitrofi entro ${radius} km.`;
+    }
 
     const prompt = `Sei un agente di ricerca lavoro professionale svizzero/italiano con accesso a vaste banche dati aziendali. Il tuo compito è generare la lista PIÙ COMPLETA POSSIBILE di aziende reali CON PRIORITÀ ASSOLUTA ALLA RICERCA EMAIL VERIFICATE.
 
 PUNTO DI PARTENZA UTENTE: ${originCity}
 ZONA DI RICERCA:
 - Località: ${location}
-- Raggio: ${radius} km
-${regionContext}
+- Raggio: ${onlySelectedCity ? 'SOLO QUESTA CITTÀ - NESSUN RAGGIO' : `${radius} km`}
+- Modalità: ${onlySelectedCity ? '🎯 SOLO CITTÀ SELEZIONATA - RICERCA CONCENTRATA' : 'Zona estesa'}
+
+${locationContext}
 
 SETTORI/KEYWORDS DI RICERCA:
 ${keywords.map(k => `- ${k}`).join('\n')}
