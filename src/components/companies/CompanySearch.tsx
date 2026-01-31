@@ -42,6 +42,7 @@ interface SavedSearchPreferences {
   minResults: string;
   selectedKeywords: string[];
   showOnlyWithEmail: boolean;
+  onlySelectedCity: boolean;
 }
 
 const STORAGE_KEY = 'search_preferences';
@@ -79,6 +80,7 @@ export function CompanySearch() {
   const [selectedSector, setSelectedSector] = useState('Tutti i settori');
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [showOnlyWithEmail, setShowOnlyWithEmail] = useState(false);
+  const [onlySelectedCity, setOnlySelectedCity] = useState(false);
   const [aziende, setAziende] = useState<Azienda[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -99,6 +101,7 @@ export function CompanySearch() {
       minResults,
       selectedKeywords,
       showOnlyWithEmail,
+      onlySelectedCity,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
     setHasSavedPreferences(true);
@@ -119,6 +122,7 @@ export function CompanySearch() {
         setMinResults(prefs.minResults || '30');
         setSelectedKeywords(prefs.selectedKeywords || []);
         setShowOnlyWithEmail(prefs.showOnlyWithEmail || false);
+        setOnlySelectedCity(prefs.onlySelectedCity || false);
         toast({
           title: '✅ Preferenze caricate',
           description: 'I parametri della tua ultima ricerca sono stati ripristinati.',
@@ -245,11 +249,19 @@ export function CompanySearch() {
     }
   };
 
-  // Filtra per settore e email - la distanza è già gestita dal backend
+  // Filtra per settore, email e città - la distanza è già gestita dal backend
   const filteredAziende = aziende.filter(az => {
     if (selectedSector !== 'Tutti i settori' && az.settore !== selectedSector) return false;
     // Controlla sia null che stringa vuota
     if (showOnlyWithEmail && (!az.email || az.email.trim() === '')) return false;
+    // Filtra per città selezionata
+    if (onlySelectedCity && searchLocation) {
+      const normalizedSearchCity = searchLocation.toLowerCase().trim();
+      const normalizedAzCity = (az.citta || '').toLowerCase().trim();
+      if (!normalizedAzCity.includes(normalizedSearchCity) && !normalizedSearchCity.includes(normalizedAzCity)) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -370,15 +382,27 @@ export function CompanySearch() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                id="emailOnly"
-                checked={showOnlyWithEmail}
-                onCheckedChange={(checked) => setShowOnlyWithEmail(checked as boolean)}
-              />
-              <label htmlFor="emailOnly" className="text-sm text-muted-foreground cursor-pointer">
-                Mostra solo aziende con email
-              </label>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="emailOnly"
+                  checked={showOnlyWithEmail}
+                  onCheckedChange={(checked) => setShowOnlyWithEmail(checked as boolean)}
+                />
+                <label htmlFor="emailOnly" className="text-sm text-muted-foreground cursor-pointer">
+                  Mostra solo aziende con email
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="cityOnly"
+                  checked={onlySelectedCity}
+                  onCheckedChange={(checked) => setOnlySelectedCity(checked as boolean)}
+                />
+                <label htmlFor="cityOnly" className="text-sm text-muted-foreground cursor-pointer">
+                  Solo città selezionata
+                </label>
+              </div>
             </div>
             
             <div className="flex gap-2 flex-wrap">
