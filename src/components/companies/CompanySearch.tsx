@@ -27,7 +27,11 @@ import {
   Sparkles,
   AlertTriangle,
   Star,
-  StarOff
+  StarOff,
+  ShieldCheck,
+  ShieldQuestion,
+  ShieldAlert,
+  Link2
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -195,6 +199,14 @@ export function CompanySearch() {
           company.email.toLowerCase() !== 'undefined'
           ? company.email.trim() 
           : null;
+
+        // Normalizza email_source
+        const normalizedEmailSource = company.email_source && 
+          company.email_source.trim() !== '' && 
+          company.email_source.toLowerCase() !== 'null' &&
+          company.email_source.toLowerCase() !== 'n/a'
+          ? company.email_source.trim() 
+          : null;
         
         return {
           id: String(index + 1),
@@ -203,6 +215,8 @@ export function CompanySearch() {
           citta: company.city || searchLocation,
           sito: company.website || '',
           email: normalizedEmail,
+          emailVerified: normalizedEmail ? (company.email_verified || 'unverified') : null,
+          emailSource: normalizedEmail ? normalizedEmailSource : null,
           telefono: company.phone || '',
           settore: company.sector || 'Altro',
           fonte: company.source || 'AI Search',
@@ -475,12 +489,57 @@ export function CompanySearch() {
                             <span className="truncate">{azienda.indirizzo ? `${azienda.indirizzo}, ` : ''}{azienda.citta}</span>
                           </div>
                           
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {azienda.email ? (
-                              <>
-                                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                                <span className="text-foreground truncate">{azienda.email}</span>
-                              </>
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {/* Icona in base al livello di verifica */}
+                                  {azienda.emailVerified === 'verified_official' ? (
+                                    <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" />
+                                  ) : azienda.emailVerified === 'verified_directory' ? (
+                                    <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                                  ) : azienda.emailVerified === 'directory_only' ? (
+                                    <ShieldQuestion className="h-4 w-4 text-amber-500 shrink-0" />
+                                  ) : (
+                                    <ShieldAlert className="h-4 w-4 text-orange-400 shrink-0" />
+                                  )}
+                                  <span className="text-foreground truncate">{azienda.email}</span>
+                                  {/* Badge di verifica */}
+                                  {azienda.emailVerified === 'verified_official' && (
+                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                                      ✓ Verificata
+                                    </Badge>
+                                  )}
+                                  {azienda.emailVerified === 'verified_directory' && (
+                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+                                      ✓ Confermata
+                                    </Badge>
+                                  )}
+                                  {azienda.emailVerified === 'directory_only' && (
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                                      ⚠ Da verificare
+                                    </Badge>
+                                  )}
+                                  {azienda.emailVerified === 'unverified' && (
+                                    <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200 text-xs">
+                                      ? Non verificata
+                                    </Badge>
+                                  )}
+                                </div>
+                                {/* Fonte dell'email */}
+                                {azienda.emailSource && (
+                                  <a 
+                                    href={azienda.emailSource.startsWith('http') ? azienda.emailSource : `https://${azienda.emailSource}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    <Link2 className="h-3 w-3" />
+                                    <span className="truncate max-w-[200px]">Fonte: {azienda.emailSource.replace(/^https?:\/\//, '').split('/')[0]}</span>
+                                  </a>
+                                )}
+                              </div>
                             ) : (
                               <>
                                 <XCircle className="h-4 w-4 text-muted-foreground shrink-0" />

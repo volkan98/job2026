@@ -41,6 +41,8 @@ export interface Azienda {
   citta: string;
   sito: string;
   email: string | null;
+  emailVerified?: 'verified_official' | 'verified_directory' | 'directory_only' | 'unverified' | null;
+  emailSource?: string | null; // URL esatto dove è stata trovata l'email
   telefono: string;
   settore: string;
   fonte: string;

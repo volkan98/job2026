@@ -37,6 +37,8 @@ export interface Company {
   city?: string;
   website?: string;
   email?: string | null;
+  email_verified?: 'verified_official' | 'verified_directory' | 'directory_only' | 'unverified' | null;
+  email_source?: string | null; // URL esatto dove è stata trovata l'email
   phone?: string | null;
   contact_type?: string;
   source?: string;
