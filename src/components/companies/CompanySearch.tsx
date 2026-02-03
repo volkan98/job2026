@@ -86,6 +86,33 @@ export function CompanySearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [originCity, setOriginCity] = useState(cvData?.citta || '');
   const [hasSavedPreferences, setHasSavedPreferences] = useState(false);
+  const [sentEmails, setSentEmails] = useState<Set<string>>(new Set());
+  const [sentDomains, setSentDomains] = useState<Set<string>>(new Set());
+
+  // Carica le email già inviate all'avvio
+  useEffect(() => {
+    const loadSentEmails = async () => {
+      try {
+        const emails = await aiAgent.getSentEmails();
+        const emailSet = new Set<string>();
+        const domainSet = new Set<string>();
+        
+        emails.forEach((e: any) => {
+          if (e.email) {
+            emailSet.add(e.email.toLowerCase());
+            const domain = e.email.split('@')[1]?.toLowerCase();
+            if (domain) domainSet.add(domain);
+          }
+        });
+        
+        setSentEmails(emailSet);
+        setSentDomains(domainSet);
+      } catch (error) {
+        console.error('Error loading sent emails:', error);
+      }
+    };
+    loadSentEmails();
+  }, []);
 
   // Controlla se ci sono preferenze salvate
   useEffect(() => {
@@ -250,7 +277,7 @@ export function CompanySearch() {
     }
   };
 
-  // Filtra per settore, email e città - la distanza è già gestita dal backend
+  // Filtra per settore, email, città e escludi aziende già contattate
   const filteredAziende = aziende.filter(az => {
     if (selectedSector !== 'Tutti i settori' && az.settore !== selectedSector) return false;
     // Controlla sia null che stringa vuota
@@ -260,6 +287,14 @@ export function CompanySearch() {
       const normalizedSearchCity = searchLocation.toLowerCase().trim();
       const normalizedAzCity = (az.citta || '').toLowerCase().trim();
       if (!normalizedAzCity.includes(normalizedSearchCity) && !normalizedSearchCity.includes(normalizedAzCity)) {
+        return false;
+      }
+    }
+    // Escludi aziende già contattate (per email o dominio)
+    if (az.email) {
+      const emailLower = az.email.toLowerCase();
+      const domain = emailLower.split('@')[1];
+      if (sentEmails.has(emailLower) || (domain && sentDomains.has(domain))) {
         return false;
       }
     }
