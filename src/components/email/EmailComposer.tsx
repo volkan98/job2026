@@ -338,7 +338,8 @@ export function EmailComposer() {
         'v1'
       );
 
-      // Add to local log
+      // Track for anti-spam
+      recordSend();
       addLogInvio({
         id: Date.now().toString(),
         data: new Date(),
