@@ -633,7 +633,7 @@ export function EmailComposer() {
                       <Button 
                         className="w-full"
                         onClick={handleSendEmail}
-                        disabled={isSending || duplicateWarning?.isDuplicate}
+                        disabled={isSending || duplicateWarning?.isDuplicate || isAtLimit}
                       >
                         {isSending ? (
                           <>
