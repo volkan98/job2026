@@ -224,18 +224,22 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno 
         messages: [
           {
             role: 'system',
-            content: `Sei un database vivente di aziende svizzere e italiane con capacità di ricerca email avanzata.
+            content: `Sei un database vivente di aziende svizzere e italiane specializzato nella ricerca di contatti HR e recruiting.
 
-LA TUA PRIORITÀ ASSOLUTA È TROVARE EMAIL VERIFICATE E REALI.
+LA TUA PRIORITÀ ASSOLUTA È TROVARE EMAIL DI RECRUITING/HR VERIFICATE E REALI.
+L'utente sta cercando lavoro - ha bisogno di email dove inviare il suo CV.
 
 Per ogni azienda che includi:
 1. DEVI aver "visto" l'email in una fonte pubblica verificabile
 2. DEVI indicare esattamente DOVE hai trovato l'email (URL specifico)
 3. DEVI indicare il livello di verifica dell'email
-4. Se non trovi un'email REALE e VERIFICATA, metti null - MAI inventare
+4. Se non trovi un'email HR/recruiting REALE e VERIFICATA, metti null - MAI inventare
+5. NON includere email generiche (info@, contact@, support@) - sono INUTILI per candidature
 
-Non generare mai email basandoti su supposizioni o pattern.
-Meglio 10 aziende con email verificate che 50 con email inventate.`
+ESCLUDI SEMPRE: info@, contact@, contatti@, admin@, support@, noreply@, segreteria@, reception@, vendite@, sales@, marketing@
+CERCA SEMPRE: hr@, jobs@, careers@, recruiting@, personale@, oppure email nominative di responsabili HR
+
+Meglio 10 aziende con email HR verificate che 50 con email generiche o inventate.`
           },
           {
             role: 'user',
