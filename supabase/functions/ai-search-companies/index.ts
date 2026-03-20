@@ -156,6 +156,15 @@ ESEMPI DI FILTRAGGIO CORRETTO:
                           → ❌ Negozi di cucine, showroom di arredamento
 - Keyword "Meccanica"    → ✅ Officine meccaniche, aziende di produzione, manutenzione industriale
                           → ❌ Rivenditori di ricambi, negozi di auto
+- Keyword "Agenzie" / "Agenzie per il lavoro" → ✅ TUTTE le agenzie di collocamento, interinali e di somministrazione lavoro attive in Svizzera:
+  Adecco, Randstad, Manpower, Kelly Services, Gi Group, Synergie, Grafton, Michael Page, Hays, Robert Half, 
+  Adecco Staffing, Tempojob, Interiman, Adia (Adecco), Helvetic Employment, Careerplus, Universal Job, 
+  Page Personnel, Robert Walters, Swissstaffing members, Experis, Antal, Aquila, Wander, Arkos, 
+  Temporis, Axia, Covebo, Flexjob, Flextime, Globaljob, Staff Finder, Tekna, Profil Search, 
+  Vivian's, Joker Personal, Ontime, Personal Sigma, Coople, Jobchannel, Jobeo, Staffxperts,
+  e qualsiasi altra agenzia interinale/di collocamento operativa nella zona di ricerca.
+  → ❌ Agenzie immobiliari, agenzie di viaggio, agenzie pubblicitarie, agenzie assicurative
+  → ⚠️ Per le agenzie: cerca SPECIFICAMENTE le FILIALI/SEDI nella zona indicata, non solo la sede principale
 
 PRINCIPIO: L'azienda deve avere BISOGNO di un lavoratore con quelle competenze, non vendere prodotti correlati.
 
