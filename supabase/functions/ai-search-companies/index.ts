@@ -312,17 +312,37 @@ Meglio 10 aziende con email verificate che 50 con email inventate.`
       return true;
     });
 
+    // Generic email prefixes to reject (not useful for job applications)
+    const genericPrefixes = [
+      'info', 'contact', 'contatti', 'contatto', 'amministrazione', 'admin',
+      'support', 'supporto', 'noreply', 'no-reply', 'segreteria', 'reception',
+      'ufficio', 'vendite', 'sales', 'marketing', 'webmaster', 'postmaster',
+      'office', 'hello', 'help', 'service', 'general', 'mail', 'email',
+      'direzione', 'comunicazione', 'press', 'stampa', 'billing', 'invoice',
+      'fatturazione', 'acquisti', 'procurement', 'ordini', 'orders'
+    ];
+
     // Clean and validate email data
     companies = companies.map((c: any) => {
-      // Normalize email - reject obviously fake/invented patterns
       let email = c.email;
       let emailVerified = c.email_verified || null;
       let emailSource = c.email_source || null;
       
       if (email) {
-        email = email.trim();
+        email = email.trim().toLowerCase();
         // Check for null-like strings
-        if (['null', 'n/a', 'undefined', 'none', '-', ''].includes(email.toLowerCase())) {
+        if (['null', 'n/a', 'undefined', 'none', '-', ''].includes(email)) {
+          email = null;
+          emailVerified = null;
+          emailSource = null;
+        }
+      }
+      
+      // Filter out generic emails not useful for job applications
+      if (email) {
+        const prefix = email.split('@')[0];
+        if (genericPrefixes.includes(prefix)) {
+          console.log(`Filtered generic email: ${email} for ${c.name}`);
           email = null;
           emailVerified = null;
           emailSource = null;
