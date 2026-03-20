@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
 import { aiAgent, EmailTemplate as AIEmailTemplate } from '@/lib/api/ai-agent';
 import { useEmailOAuth, EmailProvider } from '@/hooks/useEmailOAuth';
@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Mail, 
@@ -30,7 +31,10 @@ import {
   Copy,
   ExternalLink,
   History,
-  Unlink
+  Unlink,
+  ShieldAlert,
+  Timer,
+  Shield
 } from 'lucide-react';
 
 type EmailStyle = 'breve' | 'standard' | 'formale';
@@ -68,6 +72,110 @@ export function EmailComposer() {
     lastDate?: string;
     originalCompany?: string;
   } | null>(null);
+
+  // Anti-spam tracking
+  const GMAIL_HOURLY_LIMIT = 15;
+  const GMAIL_DAILY_LIMIT = 80;
+  const COOLDOWN_MINUTES = 10; // Pausa consigliata dopo X email
+  const COOLDOWN_THRESHOLD = 8; // Dopo quante email suggerire pausa
+  
+  const [sendTimestamps, setSendTimestamps] = useState<number[]>(() => {
+    const saved = localStorage.getItem('email_send_timestamps');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(() => {
+    const saved = localStorage.getItem('email_cooldown_until');
+    return saved ? Number(saved) : null;
+  });
+  const [cooldownDismissed, setCooldownDismissed] = useState(false);
+
+  // Clean old timestamps and persist
+  useEffect(() => {
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const cleaned = sendTimestamps.filter(t => t > oneDayAgo);
+    if (cleaned.length !== sendTimestamps.length) {
+      setSendTimestamps(cleaned);
+    }
+    localStorage.setItem('email_send_timestamps', JSON.stringify(cleaned));
+  }, [sendTimestamps]);
+
+  useEffect(() => {
+    if (cooldownUntil) {
+      localStorage.setItem('email_cooldown_until', String(cooldownUntil));
+    } else {
+      localStorage.removeItem('email_cooldown_until');
+    }
+  }, [cooldownUntil]);
+
+  const getHourlySentCount = useCallback(() => {
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    return sendTimestamps.filter(t => t > oneHourAgo).length;
+  }, [sendTimestamps]);
+
+  const getDailySentCount = useCallback(() => {
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    return sendTimestamps.filter(t => t > oneDayAgo).length;
+  }, [sendTimestamps]);
+
+  const getSessionSentCount = useCallback(() => {
+    // Count sent in the last burst (consecutive sends within 2 min gaps)
+    const now = Date.now();
+    let count = 0;
+    const sorted = [...sendTimestamps].sort((a, b) => b - a);
+    for (const t of sorted) {
+      if (now - t < 60 * 60 * 1000) count++;
+      else break;
+    }
+    return count;
+  }, [sendTimestamps]);
+
+  const isCooldownActive = cooldownUntil && Date.now() < cooldownUntil && !cooldownDismissed;
+  const hourlySent = getHourlySentCount();
+  const dailySent = getDailySentCount();
+  const hourlyProgress = (hourlySent / GMAIL_HOURLY_LIMIT) * 100;
+  const isNearLimit = hourlySent >= GMAIL_HOURLY_LIMIT - 3;
+  const isAtLimit = hourlySent >= GMAIL_HOURLY_LIMIT;
+  const shouldSuggestCooldown = hourlySent >= COOLDOWN_THRESHOLD && !isCooldownActive;
+  
+  const getSpamRiskLevel = (): 'safe' | 'caution' | 'warning' | 'danger' | 'blocked' => {
+    if (isAtLimit) return 'blocked';
+    if (hourlySent >= GMAIL_HOURLY_LIMIT - 2) return 'danger';
+    if (hourlySent >= GMAIL_HOURLY_LIMIT - 5) return 'warning';
+    if (hourlySent >= 5) return 'caution';
+    return 'safe';
+  };
+
+  const spamRisk = getSpamRiskLevel();
+  
+  const recordSend = () => {
+    const now = Date.now();
+    setSendTimestamps(prev => [...prev, now]);
+    
+    // Auto-cooldown after threshold
+    if (hourlySent + 1 >= COOLDOWN_THRESHOLD) {
+      setCooldownUntil(now + COOLDOWN_MINUTES * 60 * 1000);
+      setCooldownDismissed(false);
+    }
+  };
+
+  // Cooldown timer
+  const [cooldownRemaining, setCooldownRemaining] = useState('');
+  useEffect(() => {
+    if (!cooldownUntil || cooldownDismissed) return;
+    const interval = setInterval(() => {
+      const remaining = cooldownUntil - Date.now();
+      if (remaining <= 0) {
+        setCooldownUntil(null);
+        setCooldownRemaining('');
+      } else {
+        const min = Math.floor(remaining / 60000);
+        const sec = Math.floor((remaining % 60000) / 1000);
+        setCooldownRemaining(`${min}:${sec.toString().padStart(2, '0')}`);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldownUntil, cooldownDismissed]);
 
   const selectedAzienda = aziendeSelezionate.find(a => a.id === selectedAziendaId);
 
@@ -230,7 +338,8 @@ export function EmailComposer() {
         'v1'
       );
 
-      // Add to local log
+      // Track for anti-spam
+      recordSend();
       addLogInvio({
         id: Date.now().toString(),
         data: new Date(),
@@ -524,7 +633,7 @@ export function EmailComposer() {
                       <Button 
                         className="w-full"
                         onClick={handleSendEmail}
-                        disabled={isSending || duplicateWarning?.isDuplicate}
+                        disabled={isSending || duplicateWarning?.isDuplicate || isAtLimit}
                       >
                         {isSending ? (
                           <>
@@ -603,6 +712,9 @@ export function EmailComposer() {
                               currentEmail.corpo,
                               'manual'
                             );
+
+                            // Track for anti-spam
+                            recordSend();
 
                             addLogInvio({
                               id: Date.now().toString(),
@@ -711,14 +823,107 @@ export function EmailComposer() {
         </Card>
       )}
 
-      {/* Anti-spam Notice */}
-      <Alert>
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Anti-spam:</strong> Email inviate singolarmente (no CC). 
-          Limite: max 20/ora. L'AI evita email duplicate e traccia gli invii.
-        </AlertDescription>
-      </Alert>
+      {/* 🛡️ Anti-Spam Gmail Alert */}
+      <Card className={`border-2 ${
+        spamRisk === 'blocked' ? 'border-destructive bg-destructive/5' :
+        spamRisk === 'danger' ? 'border-orange-500 bg-orange-500/5' :
+        spamRisk === 'warning' ? 'border-yellow-500 bg-yellow-500/5' :
+        'border-green-500/30 bg-green-500/5'
+      }`}>
+        <CardContent className="pt-5 pb-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className={`h-5 w-5 ${
+              spamRisk === 'blocked' ? 'text-destructive' :
+              spamRisk === 'danger' ? 'text-orange-500' :
+              spamRisk === 'warning' ? 'text-yellow-600' :
+              'text-green-600'
+            }`} />
+            <div className="flex-1">
+              <p className="font-semibold text-foreground text-sm">
+                Protezione Anti-Spam Gmail
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {spamRisk === 'blocked' 
+                  ? '⛔ Limite orario raggiunto! Attendi prima di inviare altre email.'
+                  : spamRisk === 'danger'
+                  ? '🔴 Quasi al limite! Rallenta gli invii per evitare blocchi.'
+                  : spamRisk === 'warning'
+                  ? '🟡 Attenzione: stai inviando molte email. Considera una pausa.'
+                  : spamRisk === 'caution'
+                  ? '🟢 Ritmo ok, ma monitora il contatore.'
+                  : '✅ Tutto in regola. Invii sicuri.'}
+              </p>
+            </div>
+            <Badge variant={spamRisk === 'blocked' || spamRisk === 'danger' ? 'destructive' : 'secondary'}>
+              {hourlySent}/{GMAIL_HOURLY_LIMIT} /ora
+            </Badge>
+          </div>
+
+          {/* Progress bar */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Invii ultima ora</span>
+              <span>{hourlySent} di {GMAIL_HOURLY_LIMIT} (giornaliere: {dailySent}/{GMAIL_DAILY_LIMIT})</span>
+            </div>
+            <Progress 
+              value={Math.min(hourlyProgress, 100)} 
+              className={`h-2.5 ${
+                spamRisk === 'blocked' ? '[&>div]:bg-destructive' :
+                spamRisk === 'danger' ? '[&>div]:bg-orange-500' :
+                spamRisk === 'warning' ? '[&>div]:bg-yellow-500' :
+                '[&>div]:bg-green-500'
+              }`}
+            />
+          </div>
+
+          {/* Cooldown suggestion */}
+          {isCooldownActive && (
+            <Alert className="bg-orange-500/10 border-orange-500/30">
+              <Timer className="h-4 w-4 text-orange-500" />
+              <AlertDescription className="flex items-center justify-between">
+                <span className="text-sm">
+                  <strong>Pausa consigliata:</strong> attendi {cooldownRemaining} prima di continuare per evitare il blocco Gmail.
+                </span>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => setCooldownDismissed(true)}
+                  className="shrink-0 ml-2 text-xs"
+                >
+                  Ignora
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isAtLimit && (
+            <Alert variant="destructive">
+              <Ban className="h-4 w-4" />
+              <AlertTitle>Invio bloccato</AlertTitle>
+              <AlertDescription>
+                Hai raggiunto il limite di {GMAIL_HOURLY_LIMIT} email/ora. 
+                Attendi che il contatore si resetti per evitare che Gmail blocchi il tuo account.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Tips */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5" />
+              Email singole (no CC/BCC)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              Pausa auto ogni {COOLDOWN_THRESHOLD} email
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Ban className="h-3.5 w-3.5" />
+              Blocco duplicati attivo
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Navigation */}
       <div className="flex justify-between pt-4">
