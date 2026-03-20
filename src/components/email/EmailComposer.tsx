@@ -73,6 +73,110 @@ export function EmailComposer() {
     originalCompany?: string;
   } | null>(null);
 
+  // Anti-spam tracking
+  const GMAIL_HOURLY_LIMIT = 15;
+  const GMAIL_DAILY_LIMIT = 80;
+  const COOLDOWN_MINUTES = 10; // Pausa consigliata dopo X email
+  const COOLDOWN_THRESHOLD = 8; // Dopo quante email suggerire pausa
+  
+  const [sendTimestamps, setSendTimestamps] = useState<number[]>(() => {
+    const saved = localStorage.getItem('email_send_timestamps');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(() => {
+    const saved = localStorage.getItem('email_cooldown_until');
+    return saved ? Number(saved) : null;
+  });
+  const [cooldownDismissed, setCooldownDismissed] = useState(false);
+
+  // Clean old timestamps and persist
+  useEffect(() => {
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const cleaned = sendTimestamps.filter(t => t > oneDayAgo);
+    if (cleaned.length !== sendTimestamps.length) {
+      setSendTimestamps(cleaned);
+    }
+    localStorage.setItem('email_send_timestamps', JSON.stringify(cleaned));
+  }, [sendTimestamps]);
+
+  useEffect(() => {
+    if (cooldownUntil) {
+      localStorage.setItem('email_cooldown_until', String(cooldownUntil));
+    } else {
+      localStorage.removeItem('email_cooldown_until');
+    }
+  }, [cooldownUntil]);
+
+  const getHourlySentCount = useCallback(() => {
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    return sendTimestamps.filter(t => t > oneHourAgo).length;
+  }, [sendTimestamps]);
+
+  const getDailySentCount = useCallback(() => {
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    return sendTimestamps.filter(t => t > oneDayAgo).length;
+  }, [sendTimestamps]);
+
+  const getSessionSentCount = useCallback(() => {
+    // Count sent in the last burst (consecutive sends within 2 min gaps)
+    const now = Date.now();
+    let count = 0;
+    const sorted = [...sendTimestamps].sort((a, b) => b - a);
+    for (const t of sorted) {
+      if (now - t < 60 * 60 * 1000) count++;
+      else break;
+    }
+    return count;
+  }, [sendTimestamps]);
+
+  const isCooldownActive = cooldownUntil && Date.now() < cooldownUntil && !cooldownDismissed;
+  const hourlySent = getHourlySentCount();
+  const dailySent = getDailySentCount();
+  const hourlyProgress = (hourlySent / GMAIL_HOURLY_LIMIT) * 100;
+  const isNearLimit = hourlySent >= GMAIL_HOURLY_LIMIT - 3;
+  const isAtLimit = hourlySent >= GMAIL_HOURLY_LIMIT;
+  const shouldSuggestCooldown = hourlySent >= COOLDOWN_THRESHOLD && !isCooldownActive;
+  
+  const getSpamRiskLevel = (): 'safe' | 'caution' | 'warning' | 'danger' | 'blocked' => {
+    if (isAtLimit) return 'blocked';
+    if (hourlySent >= GMAIL_HOURLY_LIMIT - 2) return 'danger';
+    if (hourlySent >= GMAIL_HOURLY_LIMIT - 5) return 'warning';
+    if (hourlySent >= 5) return 'caution';
+    return 'safe';
+  };
+
+  const spamRisk = getSpamRiskLevel();
+  
+  const recordSend = () => {
+    const now = Date.now();
+    setSendTimestamps(prev => [...prev, now]);
+    
+    // Auto-cooldown after threshold
+    if (hourlySent + 1 >= COOLDOWN_THRESHOLD) {
+      setCooldownUntil(now + COOLDOWN_MINUTES * 60 * 1000);
+      setCooldownDismissed(false);
+    }
+  };
+
+  // Cooldown timer
+  const [cooldownRemaining, setCooldownRemaining] = useState('');
+  useEffect(() => {
+    if (!cooldownUntil || cooldownDismissed) return;
+    const interval = setInterval(() => {
+      const remaining = cooldownUntil - Date.now();
+      if (remaining <= 0) {
+        setCooldownUntil(null);
+        setCooldownRemaining('');
+      } else {
+        const min = Math.floor(remaining / 60000);
+        const sec = Math.floor((remaining % 60000) / 1000);
+        setCooldownRemaining(`${min}:${sec.toString().padStart(2, '0')}`);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldownUntil, cooldownDismissed]);
+
   const selectedAzienda = aziendeSelezionate.find(a => a.id === selectedAziendaId);
 
   // Check for duplicates when selecting a company
