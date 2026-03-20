@@ -402,12 +402,10 @@ RISULTATO IDEALE: Meglio 5 aziende con email HR verificate e funzionanti che 50 
       };
     });
 
-    // FILTER OUT companies without valid email - quality over quantity
+    // Sort companies: email first, then without email (keep all for maximum results)
     const companiesWithEmail = companies.filter((c: any) => c.email !== null);
     const companiesWithoutEmail = companies.filter((c: any) => c.email === null);
-    
-    // Keep companies with email first, then append a few without (max 5) as backup
-    companies = [...companiesWithEmail, ...companiesWithoutEmail.slice(0, 5)];
+    companies = [...companiesWithEmail, ...companiesWithoutEmail];
 
     // Sort by email verification status first, then by distance
     const verificationPriority: Record<string, number> = {
