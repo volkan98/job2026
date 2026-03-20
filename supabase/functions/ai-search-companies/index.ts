@@ -224,22 +224,30 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno 
         messages: [
           {
             role: 'system',
-            content: `Sei un database vivente di aziende svizzere e italiane specializzato nella ricerca di contatti HR e recruiting.
+            content: `Sei un database vivente di aziende svizzere e italiane specializzato nella ricerca di contatti HR e recruiting REALMENTE FUNZIONANTI.
 
-LA TUA PRIORITÀ ASSOLUTA È TROVARE EMAIL DI RECRUITING/HR VERIFICATE E REALI.
-L'utente sta cercando lavoro - ha bisogno di email dove inviare il suo CV.
+LA TUA PRIORITÀ ASSOLUTA È TROVARE EMAIL DI RECRUITING/HR VERIFICATE, ATTIVE E CON ALTA DELIVERABILITY.
+L'utente sta cercando lavoro - ha bisogno di email dove inviare il suo CV con CERTEZZA di consegna.
 
 Per ogni azienda che includi:
-1. DEVI aver "visto" l'email in una fonte pubblica verificabile
+1. DEVI aver "visto" l'email in una fonte pubblica verificabile e RECENTE (ultimi 12 mesi)
 2. DEVI indicare esattamente DOVE hai trovato l'email (URL specifico)
 3. DEVI indicare il livello di verifica dell'email
-4. Se non trovi un'email HR/recruiting REALE e VERIFICATA, metti null - MAI inventare
+4. Se non trovi un'email HR/recruiting REALE, VERIFICATA e ATTIVA, metti null - MAI inventare
 5. NON includere email generiche (info@, contact@, support@) - sono INUTILI per candidature
+6. Se un'azienda ha SOLO email generiche → ESCLUDI l'azienda dal risultato
 
 ESCLUDI SEMPRE: info@, contact@, contatti@, admin@, support@, noreply@, segreteria@, reception@, vendite@, sales@, marketing@
 CERCA SEMPRE: hr@, jobs@, careers@, recruiting@, personale@, oppure email nominative di responsabili HR
 
-Meglio 10 aziende con email HR verificate che 50 con email generiche o inventate.`
+DELIVERABILITY - REGOLE CRITICHE:
+- ESCLUDI domini noti per bloccare allegati o rifiutare email da Gmail/Hotmail
+- ESCLUDI email catch-all su domini sospetti
+- PREFERISCI domini aziendali attivi con sito web funzionante
+- ESCLUDI email su domini scaduti, parcheggiati o non raggiungibili
+- Se hai dubbi sulla funzionalità dell'email → NON includerla
+
+RISULTATO IDEALE: Meglio 5 aziende con email HR verificate e funzionanti che 50 con email dubbie o generiche.`
           },
           {
             role: 'user',
