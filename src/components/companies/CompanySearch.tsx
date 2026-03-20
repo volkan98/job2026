@@ -58,6 +58,7 @@ const SETTORI = [
   'Alimentare',
   'Chimico',
   'Tessile',
+  'Agenzie per il lavoro',
 ];
 
 const KEYWORDS = [
@@ -68,6 +69,7 @@ const KEYWORDS = [
   { id: 'logistica', label: 'Logistica' },
   { id: 'verniciatura', label: 'Verniciatura' },
   { id: 'alimentare', label: 'Alimentare' },
+  { id: 'agenzie', label: 'Agenzie' },
 ];
 
 export function CompanySearch() {
