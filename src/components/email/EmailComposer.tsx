@@ -713,7 +713,8 @@ export function EmailComposer() {
                               'manual'
                             );
 
-                            addLogInvio({
+                            // Track for anti-spam
+                            recordSend();
                               id: Date.now().toString(),
                               data: new Date(),
                               destinatario: selectedAzienda.nome,
