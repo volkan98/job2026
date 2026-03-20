@@ -255,7 +255,7 @@ RISULTATO IDEALE: Meglio 5 aziende con email HR verificate e funzionanti che 50 
           }
         ],
         temperature: 0.7, // Abbassato per maggiore accuratezza
-        max_tokens: 16000
+        max_tokens: 32000
       }),
     });
 
