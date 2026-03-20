@@ -224,22 +224,30 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno 
         messages: [
           {
             role: 'system',
-            content: `Sei un database vivente di aziende svizzere e italiane specializzato nella ricerca di contatti HR e recruiting.
+            content: `Sei un database vivente di aziende svizzere e italiane specializzato nella ricerca di contatti HR e recruiting REALMENTE FUNZIONANTI.
 
-LA TUA PRIORITÀ ASSOLUTA È TROVARE EMAIL DI RECRUITING/HR VERIFICATE E REALI.
-L'utente sta cercando lavoro - ha bisogno di email dove inviare il suo CV.
+LA TUA PRIORITÀ ASSOLUTA È TROVARE EMAIL DI RECRUITING/HR VERIFICATE, ATTIVE E CON ALTA DELIVERABILITY.
+L'utente sta cercando lavoro - ha bisogno di email dove inviare il suo CV con CERTEZZA di consegna.
 
 Per ogni azienda che includi:
-1. DEVI aver "visto" l'email in una fonte pubblica verificabile
+1. DEVI aver "visto" l'email in una fonte pubblica verificabile e RECENTE (ultimi 12 mesi)
 2. DEVI indicare esattamente DOVE hai trovato l'email (URL specifico)
 3. DEVI indicare il livello di verifica dell'email
-4. Se non trovi un'email HR/recruiting REALE e VERIFICATA, metti null - MAI inventare
+4. Se non trovi un'email HR/recruiting REALE, VERIFICATA e ATTIVA, metti null - MAI inventare
 5. NON includere email generiche (info@, contact@, support@) - sono INUTILI per candidature
+6. Se un'azienda ha SOLO email generiche → ESCLUDI l'azienda dal risultato
 
 ESCLUDI SEMPRE: info@, contact@, contatti@, admin@, support@, noreply@, segreteria@, reception@, vendite@, sales@, marketing@
 CERCA SEMPRE: hr@, jobs@, careers@, recruiting@, personale@, oppure email nominative di responsabili HR
 
-Meglio 10 aziende con email HR verificate che 50 con email generiche o inventate.`
+DELIVERABILITY - REGOLE CRITICHE:
+- ESCLUDI domini noti per bloccare allegati o rifiutare email da Gmail/Hotmail
+- ESCLUDI email catch-all su domini sospetti
+- PREFERISCI domini aziendali attivi con sito web funzionante
+- ESCLUDI email su domini scaduti, parcheggiati o non raggiungibili
+- Se hai dubbi sulla funzionalità dell'email → NON includerla
+
+RISULTATO IDEALE: Meglio 5 aziende con email HR verificate e funzionanti che 50 con email dubbie o generiche.`
           },
           {
             role: 'user',
@@ -323,7 +331,17 @@ Meglio 10 aziende con email HR verificate che 50 con email generiche o inventate
       'ufficio', 'vendite', 'sales', 'marketing', 'webmaster', 'postmaster',
       'office', 'hello', 'help', 'service', 'general', 'mail', 'email',
       'direzione', 'comunicazione', 'press', 'stampa', 'billing', 'invoice',
-      'fatturazione', 'acquisti', 'procurement', 'ordini', 'orders'
+      'fatturazione', 'acquisti', 'procurement', 'ordini', 'orders',
+      'feedback', 'newsletter', 'subscribe', 'unsubscribe', 'abuse',
+      'privacy', 'legal', 'compliance', 'accounting', 'contabilita',
+      'commerciale', 'tecnico', 'assistenza', 'prenotazioni', 'booking',
+      'reservation', 'shop', 'store', 'ecommerce'
+    ];
+
+    // Suspicious/disposable domains to reject
+    const suspiciousDomains = [
+      'example.com', 'test.com', 'localhost', 'email.com', 'mail.com',
+      'temp-mail.org', 'guerrillamail.com', 'mailinator.com'
     ];
 
     // Clean and validate email data
@@ -335,18 +353,36 @@ Meglio 10 aziende con email HR verificate che 50 con email generiche o inventate
       if (email) {
         email = email.trim().toLowerCase();
         // Check for null-like strings
-        if (['null', 'n/a', 'undefined', 'none', '-', ''].includes(email)) {
+        if (['null', 'n/a', 'undefined', 'none', '-', '', 'na', 'n.a.', 'nessuna'].includes(email)) {
           email = null;
           emailVerified = null;
           emailSource = null;
         }
       }
       
+      // Validate email format
+      if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        console.log(`Invalid email format: ${email} for ${c.name}`);
+        email = null;
+        emailVerified = null;
+        emailSource = null;
+      }
+      
       // Filter out generic emails not useful for job applications
       if (email) {
         const prefix = email.split('@')[0];
+        const domain = email.split('@')[1];
+        
         if (genericPrefixes.includes(prefix)) {
           console.log(`Filtered generic email: ${email} for ${c.name}`);
+          email = null;
+          emailVerified = null;
+          emailSource = null;
+        }
+        
+        // Filter suspicious domains
+        if (domain && suspiciousDomains.includes(domain)) {
+          console.log(`Filtered suspicious domain: ${email} for ${c.name}`);
           email = null;
           emailVerified = null;
           emailSource = null;
@@ -365,6 +401,13 @@ Meglio 10 aziende con email HR verificate che 50 con email generiche o inventate
         email_source: email ? emailSource : null,
       };
     });
+
+    // FILTER OUT companies without valid email - quality over quantity
+    const companiesWithEmail = companies.filter((c: any) => c.email !== null);
+    const companiesWithoutEmail = companies.filter((c: any) => c.email === null);
+    
+    // Keep companies with email first, then append a few without (max 5) as backup
+    companies = [...companiesWithEmail, ...companiesWithoutEmail.slice(0, 5)];
 
     // Sort by email verification status first, then by distance
     const verificationPriority: Record<string, number> = {
