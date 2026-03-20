@@ -135,7 +135,23 @@ ISTRUZIONI CRITICHE - RICERCA PROFONDA:
 1. Genera ALMENO ${minResults} aziende realistiche - più sono meglio è!
 2. NON limitarti alle grandi aziende - includi anche PMI, artigiani, studi professionali
 3. Copri TUTTE le città/comuni nella zona di ricerca
-4. Includi aziende di settori CORRELATI (es. se cerca logistica, includi anche trasporti, spedizioni, magazzini, e-commerce)
+4. Includi aziende di settori CORRELATI ma SOLO se sono potenziali DATORI DI LAVORO
+
+⚠️ REGOLA CRITICA - FILTRAGGIO TIPOLOGIA AZIENDA:
+Le keywords/settori indicati rappresentano il LAVORO che il candidato vuole FARE, NON i prodotti che vuole comprare.
+Devi trovare aziende che ASSUMONO persone per svolgere quel tipo di lavoro.
+
+ESEMPI DI FILTRAGGIO CORRETTO:
+- Keyword "Verniciatura" → ✅ Carrozzerie, imprese edili, aziende di verniciatura industriale, cantieri navali
+                          → ❌ Negozi di vernici, colorifici, ferramenta che vendono pittura
+- Keyword "Elettricista" → ✅ Imprese elettriche, ditte di installazione, aziende di manutenzione
+                          → ❌ Negozi di materiale elettrico, rivenditori di componenti
+- Keyword "Cucina"       → ✅ Ristoranti, hotel, catering, mense aziendali
+                          → ❌ Negozi di cucine, showroom di arredamento
+- Keyword "Meccanica"    → ✅ Officine meccaniche, aziende di produzione, manutenzione industriale
+                          → ❌ Rivenditori di ricambi, negozi di auto
+
+PRINCIPIO: L'azienda deve avere BISOGNO di un lavoratore con quelle competenze, non vendere prodotti correlati.
 
 CALCOLO DISTANZA E TEMPO DI PERCORRENZA - STIMA REALISTICA OBBLIGATORIA:
 - Calcola la distanza approssimativa in km da "${originCity}" per OGNI azienda
