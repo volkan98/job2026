@@ -823,14 +823,107 @@ export function EmailComposer() {
         </Card>
       )}
 
-      {/* Anti-spam Notice */}
-      <Alert>
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Anti-spam:</strong> Email inviate singolarmente (no CC). 
-          Limite: max 20/ora. L'AI evita email duplicate e traccia gli invii.
-        </AlertDescription>
-      </Alert>
+      {/* 🛡️ Anti-Spam Gmail Alert */}
+      <Card className={`border-2 ${
+        spamRisk === 'blocked' ? 'border-destructive bg-destructive/5' :
+        spamRisk === 'danger' ? 'border-orange-500 bg-orange-500/5' :
+        spamRisk === 'warning' ? 'border-yellow-500 bg-yellow-500/5' :
+        'border-green-500/30 bg-green-500/5'
+      }`}>
+        <CardContent className="pt-5 pb-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className={`h-5 w-5 ${
+              spamRisk === 'blocked' ? 'text-destructive' :
+              spamRisk === 'danger' ? 'text-orange-500' :
+              spamRisk === 'warning' ? 'text-yellow-600' :
+              'text-green-600'
+            }`} />
+            <div className="flex-1">
+              <p className="font-semibold text-foreground text-sm">
+                Protezione Anti-Spam Gmail
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {spamRisk === 'blocked' 
+                  ? '⛔ Limite orario raggiunto! Attendi prima di inviare altre email.'
+                  : spamRisk === 'danger'
+                  ? '🔴 Quasi al limite! Rallenta gli invii per evitare blocchi.'
+                  : spamRisk === 'warning'
+                  ? '🟡 Attenzione: stai inviando molte email. Considera una pausa.'
+                  : spamRisk === 'caution'
+                  ? '🟢 Ritmo ok, ma monitora il contatore.'
+                  : '✅ Tutto in regola. Invii sicuri.'}
+              </p>
+            </div>
+            <Badge variant={spamRisk === 'blocked' || spamRisk === 'danger' ? 'destructive' : 'secondary'}>
+              {hourlySent}/{GMAIL_HOURLY_LIMIT} /ora
+            </Badge>
+          </div>
+
+          {/* Progress bar */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Invii ultima ora</span>
+              <span>{hourlySent} di {GMAIL_HOURLY_LIMIT} (giornaliere: {dailySent}/{GMAIL_DAILY_LIMIT})</span>
+            </div>
+            <Progress 
+              value={Math.min(hourlyProgress, 100)} 
+              className={`h-2.5 ${
+                spamRisk === 'blocked' ? '[&>div]:bg-destructive' :
+                spamRisk === 'danger' ? '[&>div]:bg-orange-500' :
+                spamRisk === 'warning' ? '[&>div]:bg-yellow-500' :
+                '[&>div]:bg-green-500'
+              }`}
+            />
+          </div>
+
+          {/* Cooldown suggestion */}
+          {isCooldownActive && (
+            <Alert className="bg-orange-500/10 border-orange-500/30">
+              <Timer className="h-4 w-4 text-orange-500" />
+              <AlertDescription className="flex items-center justify-between">
+                <span className="text-sm">
+                  <strong>Pausa consigliata:</strong> attendi {cooldownRemaining} prima di continuare per evitare il blocco Gmail.
+                </span>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => setCooldownDismissed(true)}
+                  className="shrink-0 ml-2 text-xs"
+                >
+                  Ignora
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isAtLimit && (
+            <Alert variant="destructive">
+              <Ban className="h-4 w-4" />
+              <AlertTitle>Invio bloccato</AlertTitle>
+              <AlertDescription>
+                Hai raggiunto il limite di {GMAIL_HOURLY_LIMIT} email/ora. 
+                Attendi che il contatore si resetti per evitare che Gmail blocchi il tuo account.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Tips */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5" />
+              Email singole (no CC/BCC)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              Pausa auto ogni {COOLDOWN_THRESHOLD} email
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Ban className="h-3.5 w-3.5" />
+              Blocco duplicati attivo
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Navigation */}
       <div className="flex justify-between pt-4">
