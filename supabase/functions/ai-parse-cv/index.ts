@@ -75,7 +75,7 @@ Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks) con q
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-3-flash-preview',
         messages: [
           {
             role: 'user',
