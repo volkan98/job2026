@@ -279,12 +279,13 @@ export function EmailComposer() {
     }
   };
 
-  // Auto-generate when company changes
+  // Reset email and auto-generate when company changes
   useEffect(() => {
-    if (selectedAzienda && cvData && !currentEmail) {
+    if (selectedAzienda && cvData) {
+      setCurrentEmail(null);
       handleGenerateEmail();
     }
-  }, [selectedAzienda, cvData]);
+  }, [selectedAziendaId, emailStyle]);
 
   const handleConnectEmail = async (provider: EmailProvider) => {
     await connect(provider);
