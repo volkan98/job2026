@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
 import { aiAgent, EmailTemplate as AIEmailTemplate } from '@/lib/api/ai-agent';
 import { useEmailOAuth, EmailProvider } from '@/hooks/useEmailOAuth';
@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Mail, 
@@ -30,7 +31,10 @@ import {
   Copy,
   ExternalLink,
   History,
-  Unlink
+  Unlink,
+  ShieldAlert,
+  Timer,
+  Shield
 } from 'lucide-react';
 
 type EmailStyle = 'breve' | 'standard' | 'formale';
