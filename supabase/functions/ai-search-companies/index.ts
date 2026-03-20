@@ -103,22 +103,28 @@ REGOLE INDEROGABILI PER EMAIL:
 ❌ NON INVENTARE MAI email
 ❌ NON DEDURRE email non presenti esplicitamente
 ❌ NON generare email basandoti su pattern (es. "probabilmente info@dominio.ch")
-✅ Inserisci SOLO email che hai effettivamente "visto" in una fonte pubblica
-✅ Se non trovi email verificata, metti NULL - è meglio null che email falsa
+❌ NON includere email generiche inutili per candidature: info@, contact@, contatti@, amministrazione@, support@, noreply@, segreteria@, reception@, ufficio@, vendite@, sales@, marketing@, webmaster@, postmaster@
+✅ Inserisci SOLO email UTILI PER CANDIDATURE LAVORATIVE
+✅ Se non trovi email adatta a candidatura, metti NULL - è meglio null che email inutile
 ✅ Salva SEMPRE la fonte esatta dell'email (URL della pagina dove l'hai trovata)
 
-PRIORITÀ EMAIL (in ordine di preferenza):
-1. hr@, jobs@, recruiting@, personale@, karriere@ (se presenti e verificate)
-2. info@, contact@, contatti@ (se verificate)
-3. Email personale di HR/recruiter (se pubblica sul sito)
-4. Email generica aziendale verificata
+⚠️ REGOLA CRITICA - FILTRAGGIO EMAIL PER CANDIDATURA:
+L'obiettivo è trovare email dove inviare un CV con alta probabilità di essere LETTO da chi si occupa di selezione.
+
+PRIORITÀ EMAIL (in ordine di preferenza - SOLO queste categorie):
+1. 🟢 Email HR/Recruiting: hr@, jobs@, careers@, recruiting@, personale@, karriere@, lavoro@, selezione@, bewerbung@, risorse.umane@, human.resources@
+2. 🟢 Email nominative di responsabili HR/recruiting (nome.cognome@azienda.com) trovate su pagina "Lavora con noi" o "Team"
+3. 🟡 Email nominative generiche (nome.cognome@azienda.com) di titolari/direttori - SOLO per PMI dove il titolare gestisce le assunzioni
+4. 🔴 ESCLUDI TUTTO IL RESTO: info@, contact@, admin@, support@, noreply@, segreteria@, reception@, vendite@, sales@, marketing@, ufficio@
+
+Se un'azienda ha SOLO email generiche (info@, contact@, ecc.) e NESSUNA email HR/nominativa → metti email = null
 
 LIVELLI DI VERIFICA EMAIL:
-- "verified_official" = Email trovata direttamente sul sito ufficiale dell'azienda
+- "verified_official" = Email HR/recruiting trovata direttamente sul sito ufficiale dell'azienda
 - "verified_directory" = Email trovata su directory pubblica E confermata sul sito ufficiale
 - "directory_only" = Email trovata solo su directory, non confermata sul sito
 - "unverified" = Email incerta o non verificabile
-- null = Nessuna email trovata
+- null = Nessuna email adatta a candidatura trovata
 
 FONTI DA CONSIDERARE:
 - local.ch, search.ch, yellow.ch (Svizzera)
@@ -218,18 +224,22 @@ Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno 
         messages: [
           {
             role: 'system',
-            content: `Sei un database vivente di aziende svizzere e italiane con capacità di ricerca email avanzata.
+            content: `Sei un database vivente di aziende svizzere e italiane specializzato nella ricerca di contatti HR e recruiting.
 
-LA TUA PRIORITÀ ASSOLUTA È TROVARE EMAIL VERIFICATE E REALI.
+LA TUA PRIORITÀ ASSOLUTA È TROVARE EMAIL DI RECRUITING/HR VERIFICATE E REALI.
+L'utente sta cercando lavoro - ha bisogno di email dove inviare il suo CV.
 
 Per ogni azienda che includi:
 1. DEVI aver "visto" l'email in una fonte pubblica verificabile
 2. DEVI indicare esattamente DOVE hai trovato l'email (URL specifico)
 3. DEVI indicare il livello di verifica dell'email
-4. Se non trovi un'email REALE e VERIFICATA, metti null - MAI inventare
+4. Se non trovi un'email HR/recruiting REALE e VERIFICATA, metti null - MAI inventare
+5. NON includere email generiche (info@, contact@, support@) - sono INUTILI per candidature
 
-Non generare mai email basandoti su supposizioni o pattern.
-Meglio 10 aziende con email verificate che 50 con email inventate.`
+ESCLUDI SEMPRE: info@, contact@, contatti@, admin@, support@, noreply@, segreteria@, reception@, vendite@, sales@, marketing@
+CERCA SEMPRE: hr@, jobs@, careers@, recruiting@, personale@, oppure email nominative di responsabili HR
+
+Meglio 10 aziende con email HR verificate che 50 con email generiche o inventate.`
           },
           {
             role: 'user',
@@ -306,17 +316,37 @@ Meglio 10 aziende con email verificate che 50 con email inventate.`
       return true;
     });
 
+    // Generic email prefixes to reject (not useful for job applications)
+    const genericPrefixes = [
+      'info', 'contact', 'contatti', 'contatto', 'amministrazione', 'admin',
+      'support', 'supporto', 'noreply', 'no-reply', 'segreteria', 'reception',
+      'ufficio', 'vendite', 'sales', 'marketing', 'webmaster', 'postmaster',
+      'office', 'hello', 'help', 'service', 'general', 'mail', 'email',
+      'direzione', 'comunicazione', 'press', 'stampa', 'billing', 'invoice',
+      'fatturazione', 'acquisti', 'procurement', 'ordini', 'orders'
+    ];
+
     // Clean and validate email data
     companies = companies.map((c: any) => {
-      // Normalize email - reject obviously fake/invented patterns
       let email = c.email;
       let emailVerified = c.email_verified || null;
       let emailSource = c.email_source || null;
       
       if (email) {
-        email = email.trim();
+        email = email.trim().toLowerCase();
         // Check for null-like strings
-        if (['null', 'n/a', 'undefined', 'none', '-', ''].includes(email.toLowerCase())) {
+        if (['null', 'n/a', 'undefined', 'none', '-', ''].includes(email)) {
+          email = null;
+          emailVerified = null;
+          emailSource = null;
+        }
+      }
+      
+      // Filter out generic emails not useful for job applications
+      if (email) {
+        const prefix = email.split('@')[0];
+        if (genericPrefixes.includes(prefix)) {
+          console.log(`Filtered generic email: ${email} for ${c.name}`);
           email = null;
           emailVerified = null;
           emailSource = null;
