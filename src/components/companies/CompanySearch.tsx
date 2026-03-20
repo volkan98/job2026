@@ -368,6 +368,7 @@ export function CompanySearch() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="5">5 km</SelectItem>
                   <SelectItem value="10">10 km</SelectItem>
                   <SelectItem value="20">20 km</SelectItem>
                   <SelectItem value="30">30 km</SelectItem>
