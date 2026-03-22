@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ManualCompanySearch } from './ManualCompanySearch';
 import { useCVContext } from '@/contexts/CVContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAutoCampaign, CampaignSetupData } from '@/hooks/useAutoCampaign';
