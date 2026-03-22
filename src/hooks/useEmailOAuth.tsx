@@ -111,17 +111,7 @@ export function useEmailOAuth() {
         sessionStorage.setItem('oauth_provider', provider);
         sessionStorage.setItem('oauth_return_step', '3');
         
-        // Persist CVContext state before redirect
-        try {
-          const cvContextState = {
-            currentStep: 3,
-            aziendeSelezionate: JSON.parse(localStorage.getItem('cv_aziende_selezionate') || '[]'),
-          };
-          sessionStorage.setItem('cv_context_state', JSON.stringify(cvContextState));
-        } catch (e) {
-          console.warn('Could not save CV context before OAuth redirect:', e);
-        }
-        
+        // State is already persisted in sessionStorage by CVContext
         // Redirect to OAuth
         window.location.href = data.authUrl;
       } else {
