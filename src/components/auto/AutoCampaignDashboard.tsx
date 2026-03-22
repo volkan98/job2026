@@ -355,38 +355,8 @@ function CampaignDashboard() {
         </Card>
       </div>
 
-      {/* Two columns: Events + Queue */}
+      {/* Two columns: Queue + Live Console */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Event Log */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />
-              Attività recenti
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[300px]">
-              <div className="space-y-1 p-4">
-                {events.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nessun evento ancora</p>
-                )}
-                {events.map(event => (
-                  <div key={event.id} className="flex items-start gap-2 py-2 border-b border-border/50 last:border-0">
-                    <EventIcon type={event.event_type} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">{event.message}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(event.created_at).toLocaleTimeString('it-IT')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
         {/* Queue Status */}
         <Card>
           <CardHeader className="pb-3">
@@ -414,6 +384,9 @@ function CampaignDashboard() {
             </ScrollArea>
           </CardContent>
         </Card>
+
+        {/* Live Console */}
+        <LiveConsole events={events} />
       </div>
 
       {/* Campaign Info */}
