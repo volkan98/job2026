@@ -7,12 +7,12 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || '';
 const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
 const HOURLY_LIMIT = 15;
-const BURST_LIMIT = 8;
-const COOLDOWN_MINUTES = 10;
+const COOLDOWN_MINUTES = 9;
 const EMAILS_PER_INVOCATION = 3;
 
 function supabaseAdmin() {
@@ -187,12 +187,12 @@ async function processCampaign(sb: any, campaign: any) {
     return;
   }
 
-  if (hourlySent >= BURST_LIMIT) {
-    const resumeAt = new Date(Date.now() + COOLDOWN_MINUTES * 60 * 1000).toISOString();
-    await sb.from('auto_campaigns').update({ status: 'paused', pause_reason: 'Pausa anti-spam preventiva', resume_at: resumeAt, updated_at: new Date().toISOString() }).eq('id', campaignId);
-    await logEvent(sb, campaignId, userId, 'paused_rate_limit', `Pausa preventiva dopo ${BURST_LIMIT} invii consecutivi`);
-    return;
-  }
+  // Internal function headers for calling other edge functions
+  const fnHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'apikey': SUPABASE_ANON_KEY,
+  };
 
   // Get user's Gmail token
   const { data: tokenData } = await sb.from('email_oauth_tokens').select('*').eq('user_id', userId).eq('provider', 'gmail').single();
@@ -238,7 +238,7 @@ async function processCampaign(sb: any, campaign: any) {
     try {
       const searchResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai-search-companies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: fnHeaders,
         body: JSON.stringify({
           location: campaign.search_location_query || campaign.search_location,
           radius: campaign.search_radius,
@@ -343,7 +343,7 @@ async function processCampaign(sb: any, campaign: any) {
       try {
         const genResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai-generate-email`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: fnHeaders,
           body: JSON.stringify({
             company: {
               name: item.company_name,
@@ -393,7 +393,7 @@ async function processCampaign(sb: any, campaign: any) {
   }
 
   // STEP 2: Send generated emails (up to remaining rate limit)
-  const canSend = Math.min(EMAILS_PER_INVOCATION, HOURLY_LIMIT - hourlySent, BURST_LIMIT - hourlySent);
+  const canSend = Math.min(EMAILS_PER_INVOCATION, HOURLY_LIMIT - hourlySent);
   if (canSend <= 0) return;
 
   const { data: readyItems } = await sb.from('campaign_queue').select('*')
