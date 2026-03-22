@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { aiAgent, EmailTemplate as AIEmailTemplate } from '@/lib/api/ai-agent';
 import { useEmailOAuth, EmailProvider } from '@/hooks/useEmailOAuth';
 import { Button } from '@/components/ui/button';
