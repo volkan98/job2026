@@ -238,7 +238,7 @@ async function processCampaign(sb: any, campaign: any) {
     try {
       const searchResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai-search-companies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: fnHeaders,
         body: JSON.stringify({
           location: campaign.search_location_query || campaign.search_location,
           radius: campaign.search_radius,
