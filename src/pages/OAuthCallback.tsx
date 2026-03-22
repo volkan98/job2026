@@ -45,10 +45,10 @@ export default function OAuthCallback() {
         setMessage(err.message || 'Impossibile completare la connessione');
       } finally {
         sessionStorage.removeItem('oauth_provider');
-        const savedStep = sessionStorage.getItem('oauth_return_step');
         sessionStorage.removeItem('oauth_return_step');
+        // Step is already persisted in sessionStorage by CVContext, just redirect
         setTimeout(() => {
-          window.location.href = savedStep ? `/?step=${savedStep}` : '/';
+          window.location.href = '/';
         }, 2000);
       }
     };
