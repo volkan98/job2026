@@ -51,6 +51,84 @@ const SUSPICIOUS_DOMAINS = new Set([
   'temp-mail.org', 'guerrillamail.com', 'mailinator.com'
 ]);
 
+// DNS MX record validation using Deno DNS
+async function validateEmailDomain(email: string): Promise<boolean> {
+  try {
+    const domain = email.split('@')[1];
+    if (!domain) return false;
+    
+    // Use Google DNS-over-HTTPS to check MX records
+    const response = await fetch(`https://dns.google/resolve?name=${domain}&type=MX`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    
+    if (!response.ok) return false;
+    
+    const data = await response.json();
+    // Status 0 = NOERROR, check if MX records exist
+    if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
+      return true;
+    }
+    
+    // Fallback: check if domain has A record (some domains accept email without MX)
+    const aResponse = await fetch(`https://dns.google/resolve?name=${domain}&type=A`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (aResponse.ok) {
+      const aData = await aResponse.json();
+      return aData.Status === 0 && aData.Answer && aData.Answer.length > 0;
+    }
+    
+    return false;
+  } catch (error) {
+    console.log(`DNS validation failed for ${email}:`, error);
+    return false; // If we can't validate, reject it
+  }
+}
+
+// Batch validate emails - returns set of valid emails
+async function batchValidateEmails(companies: CompanyResult[]): Promise<Map<string, boolean>> {
+  const results = new Map<string, boolean>();
+  const domainsToCheck = new Map<string, string[]>(); // domain -> emails
+  
+  for (const c of companies) {
+    if (!c.email) continue;
+    const domain = c.email.split('@')[1];
+    if (!domain) continue;
+    
+    if (!domainsToCheck.has(domain)) {
+      domainsToCheck.set(domain, []);
+    }
+    domainsToCheck.get(domain)!.push(c.email);
+  }
+  
+  // Validate domains in parallel (max 10 concurrent)
+  const domains = Array.from(domainsToCheck.keys());
+  const batchSize = 10;
+  
+  for (let i = 0; i < domains.length; i += batchSize) {
+    const batch = domains.slice(i, i + batchSize);
+    const validations = await Promise.all(
+      batch.map(async (domain) => {
+        const isValid = await validateEmailDomain(`test@${domain}`);
+        return { domain, isValid };
+      })
+    );
+    
+    for (const { domain, isValid } of validations) {
+      const emails = domainsToCheck.get(domain) || [];
+      for (const email of emails) {
+        results.set(email, isValid);
+      }
+      if (!isValid) {
+        console.log(`❌ Domain ${domain} has no MX/A records - rejecting emails`);
+      }
+    }
+  }
+  
+  return results;
+}
+
 function cleanCompany(c: any): CompanyResult | null {
   if (!c || !c.name) return null;
 
@@ -75,6 +153,12 @@ function cleanCompany(c: any): CompanyResult | null {
     if (GENERIC_PREFIXES.has(prefix) || (domain && SUSPICIOUS_DOMAINS.has(domain))) {
       email = null; emailVerified = null; emailSource = null;
     }
+  }
+  
+  // CRITICAL: Reject emails without a verifiable source URL
+  if (email && (!emailSource || emailSource === 'null' || emailSource === 'n/a' || emailSource.trim() === '')) {
+    console.log(`Rejected email without source: ${email} for ${c.name}`);
+    email = null; emailVerified = null; emailSource = null;
   }
 
   if (email && !emailVerified) emailVerified = 'unverified';
@@ -317,21 +401,46 @@ Deno.serve(async (req) => {
 
     const baseSystemPrompt = `Sei un esperto database vivente di aziende svizzere e italiane. Il tuo compito è generare una lista di aziende REALI.
 
-REGOLE EMAIL:
-- Cerca email HR/recruiting: hr@, jobs@, careers@, recruiting@, personale@, nome.cognome@
-- ESCLUDI email generiche: info@, contact@, admin@, support@, noreply@, segreteria@, vendite@, marketing@
-- Se un'azienda ha SOLO email generiche → email = null
-- NON INVENTARE email - se non la conosci, metti null
-- Indica email_verified e email_source quando possibile
+═══════════════════════════════════════════════════════════════
+⛔ REGOLA CRITICA ASSOLUTA - EMAIL ⛔
+═══════════════════════════════════════════════════════════════
+
+NON INVENTARE, NON DEDURRE, NON IPOTIZZARE email.
+NON generare email basandoti su pattern (es. "hr@dominio.ch", "jobs@azienda.com").
+NON costruire email partendo dal nome di dominio del sito web.
+
+L'AI ha la tendenza a INVENTARE email che SEMBRANO plausibili ma NON ESISTONO.
+Questo causa errori 550 "address unknown" e danni alla reputazione del mittente.
+
+UNICA REGOLA: Inserisci un'email SOLO SE la conosci con CERTEZZA perché:
+- L'hai vista ESPLICITAMENTE pubblicata su un sito web reale
+- È presente in una directory pubblica verificabile (local.ch, search.ch, etc.)
+- Puoi indicare l'URL ESATTO della pagina dove appare
+
+Se hai anche il MINIMO DUBBIO → email = null, email_source = null
+Se non ricordi la fonte ESATTA → email = null, email_source = null
+Se stai "deducendo" l'email dal dominio → email = null, email_source = null
+
+È MOLTO MEGLIO restituire email = null che un'email inventata.
+Le email inventate causano BOUNCE e possono far BLOCCARE l'account Gmail dell'utente.
+
+ESCLUDI sempre: info@, contact@, admin@, support@, noreply@, segreteria@, vendite@, marketing@
+CERCA solo: hr@, jobs@, careers@, recruiting@, personale@, nome.cognome@
 
 REGOLE AZIENDE:
 - Le keyword rappresentano il LAVORO che il candidato vuole FARE
 - Trova aziende che ASSUMONO per quel lavoro, NON negozi che vendono prodotti correlati
-- Keyword "Verniciatura" → ✅ Carrozzerie, verniciatura industriale → ❌ Colorifici, negozi vernici
+- Keyword "Verniciatura" → ✅ Carrozzerie, verniciatura industriale → ❌ Colorifici
 - Keyword "Agenzie" → ✅ Agenzie interinali/collocamento → ❌ Agenzie immobiliari/viaggi
 
+CAMPO email_source - OBBLIGATORIO SE email != null:
+- Deve essere un URL REALE e SPECIFICO (es. https://www.azienda.ch/contatti)
+- NON mettere URL generici tipo "https://www.azienda.ch" 
+- NON mettere "local.ch" senza URL completo
+- Se non hai l'URL specifico → email = null
+
 Rispondi SOLO con un array JSON valido (senza markdown, senza backticks).
-Formato: [{"name":"...","sector":"...","address":"...","city":"...","website":"...","email":"...o null","email_verified":"verified_official|verified_directory|directory_only|unverified|null","email_source":"URL o null","phone":"...o null","contact_type":"generic|hr|jobs","source":"...","match_score":85,"match_reasons":["..."],"distance_km":15,"travel_time":"25 min"}]`;
+Formato: [{"name":"...","sector":"...","address":"...","city":"...","website":"...","email":"null o SOLO email REALE trovata su fonte verificabile","email_verified":"verified_official|verified_directory|directory_only|null","email_source":"URL ESATTO della pagina dove hai visto l'email, o null","phone":"...o null","contact_type":"generic|hr|jobs|form_only|phone_only","source":"...","match_score":85,"match_reasons":["..."],"distance_km":15,"travel_time":"25 min"}]`;
 
     const targetCount = minResults;
 
@@ -542,6 +651,48 @@ Calcola distanza e tempo da ${originCity}.`;
     // Convert map to sorted array
     let companies = Array.from(allCompanies.values());
 
+    // ═══════════════════════════════════════════════
+    // DNS MX VALIDATION: Verify email domains actually exist
+    // ═══════════════════════════════════════════════
+    console.log('--- DNS MX Validation ---');
+    const companiesWithEmail = companies.filter(c => c.email);
+    let invalidatedCount = 0;
+
+    if (companiesWithEmail.length > 0) {
+      const validationResults = await batchValidateEmails(companiesWithEmail);
+      
+      companies = companies.map(c => {
+        if (!c.email) return c;
+        
+        const isValid = validationResults.get(c.email);
+        if (isValid === false) {
+          console.log(`🚫 DNS validation failed for ${c.email} (${c.name}) - removing email`);
+          invalidatedCount++;
+          return {
+            ...c,
+            email: null,
+            email_verified: null,
+            email_source: null,
+            contact_type: 'phone_only',
+          };
+        }
+        
+        // If DNS is valid, upgrade unverified to at least dns_verified
+        if (isValid === true && c.email_verified === 'unverified') {
+          return { ...c, email_verified: 'directory_only' };
+        }
+        
+        return c;
+      });
+      
+      console.log(`DNS validation: ${invalidatedCount} emails invalidated out of ${companiesWithEmail.length}`);
+      searchStats.companiesPerPass.push({ 
+        pass: `Validazione DNS`, 
+        found: companiesWithEmail.length, 
+        new: -invalidatedCount 
+      });
+    }
+
     // Sort: email first, then by verification, then by distance
     const verificationPriority: Record<string, number> = {
       'verified_official': 1,
@@ -568,6 +719,7 @@ Calcola distanza e tempo da ${originCity}.`;
       total: companies.length,
       withEmail: companies.filter(c => c.email).length,
       verified: companies.filter(c => ['verified_official', 'verified_directory'].includes(c.email_verified || '')).length,
+      dnsInvalidated: invalidatedCount,
     };
 
     console.log(`=== SEARCH COMPLETE === Total: ${companies.length}, With email: ${emailStats.withEmail}, Passes: ${searchStats.totalPasses}, AI calls: ${searchStats.totalAiCalls}`);
