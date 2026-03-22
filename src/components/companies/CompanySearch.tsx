@@ -83,12 +83,16 @@ export function CompanySearch() {
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [showOnlyWithEmail, setShowOnlyWithEmail] = useState(false);
   const [onlySelectedCity, setOnlySelectedCity] = useState(false);
-  const [aziende, setAziendeState] = useState<Azienda[]>(() => {
+  const [aziende, setAziendeRaw] = useState<Azienda[]>(() => {
     try {
       const saved = sessionStorage.getItem('search_results');
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  const setAziende = (data: Azienda[]) => {
+    setAziendeRaw(data);
+    try { sessionStorage.setItem('search_results', JSON.stringify(data)); } catch {}
+  };
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(() => {
     return !!sessionStorage.getItem('search_results');
