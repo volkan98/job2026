@@ -405,6 +405,64 @@ function CampaignDashboard() {
   );
 }
 
+function LiveConsole({ events }: { events: { id: string; event_type: string; message: string; created_at: string; metadata: any }[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [events.length]);
+
+  const getLogColor = (type: string) => {
+    if (['email_sent', 'search_completed', 'auto_resume', 'target_completed'].includes(type)) return 'text-green-400';
+    if (['send_failed', 'error'].includes(type)) return 'text-red-400';
+    if (['paused_rate_limit', 'rate_limit', 'search_empty'].includes(type)) return 'text-yellow-400';
+    if (['search_started'].includes(type)) return 'text-blue-400';
+    return 'text-gray-300';
+  };
+
+  const getPrefix = (type: string) => {
+    if (['email_sent', 'search_completed', 'auto_resume', 'target_completed'].includes(type)) return '✓';
+    if (['send_failed', 'error'].includes(type)) return '✗';
+    if (['paused_rate_limit', 'rate_limit'].includes(type)) return '⏸';
+    if (['search_started'].includes(type)) return '→';
+    if (['search_empty', 'search_exhausted'].includes(type)) return '⚠';
+    return '•';
+  };
+
+  return (
+    <Card className="bg-[#1e1e2e] border-[#313244]">
+      <CardHeader className="pb-2 pt-3 px-4">
+        <CardTitle className="text-sm flex items-center gap-2 text-gray-300">
+          <Terminal className="h-4 w-4 text-green-400" />
+          <span className="font-mono">Console Live</span>
+          <span className="ml-auto text-[10px] font-mono text-gray-500">{events.length} eventi</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div ref={scrollRef} className="h-[300px] overflow-y-auto font-mono text-xs px-4 pb-3">
+          {events.length === 0 && (
+            <div className="flex items-center gap-2 py-4 text-gray-500">
+              <span className="animate-pulse">▌</span>
+              <span>In attesa di eventi...</span>
+            </div>
+          )}
+          {events.map((event, i) => (
+            <div key={event.id} className="py-0.5 flex gap-2 leading-5">
+              <span className="text-gray-600 shrink-0 select-none">
+                {new Date(event.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span className={`shrink-0 ${getLogColor(event.event_type)}`}>{getPrefix(event.event_type)}</span>
+              <span className={getLogColor(event.event_type)}>{event.message}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function EventIcon({ type }: { type: string }) {
   const icons: Record<string, any> = {
     search_started: <Search className="h-3.5 w-3.5 text-blue-500 mt-0.5" />,
