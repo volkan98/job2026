@@ -87,6 +87,12 @@ export function CompanySearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [originCity, setOriginCity] = useState(cvData?.citta || '');
+  const [searchStats, setSearchStats] = useState<{
+    totalPasses: number;
+    totalAiCalls: number;
+    companiesPerPass: { pass: string; found: number; new: number }[];
+    stoppedReason: string;
+  } | null>(null);
   const [hasSavedPreferences, setHasSavedPreferences] = useState(false);
   const [sentEmails, setSentEmails] = useState<Set<string>>(new Set());
   const [sentDomains, setSentDomains] = useState<Set<string>>(new Set());
