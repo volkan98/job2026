@@ -11,6 +11,12 @@ const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 const MICROSOFT_CLIENT_ID = Deno.env.get('MICROSOFT_CLIENT_ID');
 const MICROSOFT_CLIENT_SECRET = Deno.env.get('MICROSOFT_CLIENT_SECRET');
 
+interface EmailAttachment {
+  filename: string;
+  content: string; // base64
+  mimeType: string;
+}
+
 interface OAuthRequest {
   action: 'get_auth_url' | 'exchange_code' | 'send_email' | 'disconnect' | 'get_status';
   provider?: 'gmail' | 'outlook';
@@ -20,7 +26,7 @@ interface OAuthRequest {
     to: string;
     subject: string;
     body: string;
-    attachments?: Array<{ name: string; content: string; type: string }>;
+    attachment_path?: string; // storage path to CV file
   };
 }
 
@@ -71,7 +77,6 @@ async function exchangeGoogleCode(code: string, redirectUri: string) {
 
   const tokens = await response.json();
   
-  // Get user email
   const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
@@ -108,7 +113,6 @@ async function exchangeMicrosoftCode(code: string, redirectUri: string) {
 
   const tokens = await response.json();
   
-  // Get user email
   const userResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
@@ -163,17 +167,64 @@ async function refreshMicrosoftToken(refreshToken: string) {
   return await response.json();
 }
 
-// Send email via Gmail API
-async function sendGmailEmail(accessToken: string, to: string, subject: string, body: string) {
-  const message = [
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    'Content-Type: text/plain; charset=utf-8',
-    '',
-    body,
-  ].join('\r\n');
+// Helper: build a MIME multipart message for Gmail with optional attachment
+function buildGmailMimeMessage(
+  to: string,
+  subject: string,
+  body: string,
+  attachment?: EmailAttachment
+): string {
+  if (!attachment) {
+    const message = [
+      `To: ${to}`,
+      `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      btoa(unescape(encodeURIComponent(body))),
+    ].join('\r\n');
+    return message;
+  }
 
-  const encodedMessage = btoa(unescape(encodeURIComponent(message)))
+  const boundary = `boundary_${crypto.randomUUID().replace(/-/g, '')}`;
+  
+  const messageParts = [
+    `To: ${to}`,
+    `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=utf-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    btoa(unescape(encodeURIComponent(body))),
+    '',
+    `--${boundary}`,
+    `Content-Type: ${attachment.mimeType}; name="${attachment.filename}"`,
+    'Content-Transfer-Encoding: base64',
+    `Content-Disposition: attachment; filename="${attachment.filename}"`,
+    '',
+    attachment.content,
+    '',
+    `--${boundary}--`,
+  ];
+
+  return messageParts.join('\r\n');
+}
+
+// Send email via Gmail API (with optional attachment)
+async function sendGmailEmail(
+  accessToken: string,
+  to: string,
+  subject: string,
+  body: string,
+  attachment?: EmailAttachment
+) {
+  const rawMessage = buildGmailMimeMessage(to, subject, body, attachment);
+
+  const encodedMessage = btoa(unescape(encodeURIComponent(rawMessage)))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
@@ -196,24 +247,39 @@ async function sendGmailEmail(accessToken: string, to: string, subject: string, 
   return await response.json();
 }
 
-// Send email via Microsoft Graph API
-async function sendOutlookEmail(accessToken: string, to: string, subject: string, body: string) {
+// Send email via Microsoft Graph API (with optional attachment)
+async function sendOutlookEmail(
+  accessToken: string,
+  to: string,
+  subject: string,
+  body: string,
+  attachment?: EmailAttachment
+) {
+  const message: any = {
+    subject,
+    body: {
+      contentType: 'Text',
+      content: body,
+    },
+    toRecipients: [{ emailAddress: { address: to } }],
+  };
+
+  if (attachment) {
+    message.attachments = [{
+      '@odata.type': '#microsoft.graph.fileAttachment',
+      name: attachment.filename,
+      contentType: attachment.mimeType,
+      contentBytes: attachment.content,
+    }];
+  }
+
   const response = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      message: {
-        subject,
-        body: {
-          contentType: 'Text',
-          content: body,
-        },
-        toRecipients: [{ emailAddress: { address: to } }],
-      },
-    }),
+    body: JSON.stringify({ message }),
   });
 
   if (!response.ok) {
@@ -223,6 +289,52 @@ async function sendOutlookEmail(accessToken: string, to: string, subject: string
   }
 
   return { success: true };
+}
+
+// Fetch CV file from storage and return as base64
+async function fetchCVAttachment(
+  supabase: any,
+  filePath: string
+): Promise<EmailAttachment | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from('cv-files')
+      .download(filePath);
+
+    if (error || !data) {
+      console.error('Error downloading CV:', error);
+      return null;
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64Content = btoa(binary);
+
+    // Determine filename and MIME type
+    const ext = filePath.split('.').pop()?.toLowerCase() || 'pdf';
+    const mimeMap: Record<string, string> = {
+      pdf: 'application/pdf',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      doc: 'application/msword',
+      txt: 'text/plain',
+    };
+
+    const filename = `CV.${ext}`;
+    const mimeType = mimeMap[ext] || 'application/octet-stream';
+
+    return { filename, content: base64Content, mimeType };
+  } catch (err) {
+    console.error('Error fetching CV attachment:', err);
+    return null;
+  }
 }
 
 serve(async (req) => {
@@ -289,7 +401,6 @@ serve(async (req) => {
           tokens = await exchangeMicrosoftCode(code, redirect_uri);
         }
 
-        // Save tokens to database
         const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
         
         const { error: dbError } = await supabase
@@ -344,7 +455,6 @@ serve(async (req) => {
           throw new Error('Missing provider or email_data');
         }
 
-        // Get tokens from database
         const { data: tokenData, error: dbError } = await supabase
           .from('email_oauth_tokens')
           .select('*')
@@ -387,18 +497,30 @@ serve(async (req) => {
           }
         }
 
-        // Send email
-        if (provider === 'gmail') {
-          await sendGmailEmail(accessToken, email_data.to, email_data.subject, email_data.body);
-        } else {
-          await sendOutlookEmail(accessToken, email_data.to, email_data.subject, email_data.body);
+        // Fetch CV attachment if path provided
+        let attachment: EmailAttachment | null = null;
+        if (email_data.attachment_path) {
+          console.log('Fetching CV attachment:', email_data.attachment_path);
+          attachment = await fetchCVAttachment(supabase, email_data.attachment_path);
+          if (attachment) {
+            console.log(`CV attachment loaded: ${attachment.filename} (${attachment.content.length} bytes base64)`);
+          } else {
+            console.warn('Could not load CV attachment, sending without it');
+          }
         }
 
-        console.log(`Email sent successfully via ${provider} to ${email_data.to}`);
+        // Send email
+        if (provider === 'gmail') {
+          await sendGmailEmail(accessToken, email_data.to, email_data.subject, email_data.body, attachment || undefined);
+        } else {
+          await sendOutlookEmail(accessToken, email_data.to, email_data.subject, email_data.body, attachment || undefined);
+        }
+
+        console.log(`Email sent successfully via ${provider} to ${email_data.to}${attachment ? ' with CV attached' : ''}`);
 
         return new Response(JSON.stringify({ 
           success: true, 
-          message: `Email inviata tramite ${provider}` 
+          message: `Email inviata tramite ${provider}${attachment ? ' con CV allegato' : ''}` 
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

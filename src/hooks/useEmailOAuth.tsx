@@ -161,14 +161,15 @@ export function useEmailOAuth() {
     provider: EmailProvider,
     to: string,
     subject: string,
-    body: string
+    body: string,
+    attachmentPath?: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const { data, error } = await supabase.functions.invoke('email-oauth', {
         body: {
           action: 'send_email',
           provider,
-          email_data: { to, subject, body },
+          email_data: { to, subject, body, attachment_path: attachmentPath },
         },
       });
 
