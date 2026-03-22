@@ -608,14 +608,29 @@ export function EmailComposer() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-foreground mb-1 block">
-                        Corpo Email
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-sm font-medium text-foreground">
+                          Corpo Email
+                        </label>
+                        <Badge variant="outline" className="text-xs">HTML con grassetto</Badge>
+                      </div>
+                      <div 
+                        className="min-h-[200px] p-4 border rounded-md bg-background text-sm leading-relaxed whitespace-pre-wrap font-sans"
+                        dangerouslySetInnerHTML={{ 
+                          __html: currentEmail.corpo
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/&lt;b&gt;/g, '<b>')
+                            .replace(/&lt;\/b&gt;/g, '</b>')
+                            .replace(/\n/g, '<br>')
+                        }}
+                      />
                       <Textarea
                         value={currentEmail.corpo}
                         onChange={e => setCurrentEmail({ ...currentEmail, corpo: e.target.value })}
-                        rows={12}
-                        className="font-sans"
+                        rows={6}
+                        className="font-sans mt-2 text-xs"
+                        placeholder="Modifica il codice sorgente dell'email..."
                       />
                     </div>
 

@@ -167,6 +167,22 @@ async function refreshMicrosoftToken(refreshToken: string) {
   return await response.json();
 }
 
+// Convert body text with <b> tags to proper HTML email
+function bodyToHtml(body: string): string {
+  // Escape HTML except <b> tags, then convert newlines to <br>
+  const escaped = body
+    .replace(/<b>/g, '%%%B_OPEN%%%')
+    .replace(/<\/b>/g, '%%%B_CLOSE%%%')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/%%%B_OPEN%%%/g, '<b>')
+    .replace(/%%%B_CLOSE%%%/g, '</b>')
+    .replace(/\n/g, '<br>');
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">${escaped}</body></html>`;
+}
+
 // Helper: build a MIME multipart message for Gmail with optional attachment
 function buildGmailMimeMessage(
   to: string,
@@ -174,15 +190,17 @@ function buildGmailMimeMessage(
   body: string,
   attachment?: EmailAttachment
 ): string {
+  const htmlBody = bodyToHtml(body);
+
   if (!attachment) {
     const message = [
       `To: ${to}`,
       `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
       'MIME-Version: 1.0',
-      'Content-Type: text/plain; charset=utf-8',
+      'Content-Type: text/html; charset=utf-8',
       'Content-Transfer-Encoding: base64',
       '',
-      btoa(unescape(encodeURIComponent(body))),
+      btoa(unescape(encodeURIComponent(htmlBody))),
     ].join('\r\n');
     return message;
   }
@@ -196,10 +214,10 @@ function buildGmailMimeMessage(
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     '',
     `--${boundary}`,
-    'Content-Type: text/plain; charset=utf-8',
+    'Content-Type: text/html; charset=utf-8',
     'Content-Transfer-Encoding: base64',
     '',
-    btoa(unescape(encodeURIComponent(body))),
+    btoa(unescape(encodeURIComponent(htmlBody))),
     '',
     `--${boundary}`,
     `Content-Type: ${attachment.mimeType}; name="${attachment.filename}"`,
@@ -255,11 +273,12 @@ async function sendOutlookEmail(
   body: string,
   attachment?: EmailAttachment
 ) {
+  const htmlBody = bodyToHtml(body);
   const message: any = {
     subject,
     body: {
-      contentType: 'Text',
-      content: body,
+      contentType: 'HTML',
+      content: htmlBody,
     },
     toRecipients: [{ emailAddress: { address: to } }],
   };

@@ -54,12 +54,13 @@ Deno.serve(async (req) => {
     }
 
     const variantInstructions = {
-      breve: 'Email BREVE (max 150 parole): diretta, professionale, 2-3 punti chiave dal CV che matchano con l\'azienda.',
-      standard: 'Email STANDARD (200-300 parole): professionale, 3-4 punti specifici dal CV, mostra interesse genuino per l\'azienda.',
-      formale: 'Email MOLTO FORMALE (250-350 parole): tono istituzionale svizzero, struttura classica, enfasi su affidabilità e competenze.'
+      breve: 'Email BREVE: massimo 120-150 parole nel corpo. Vai dritto al punto. 2-3 competenze chiave.',
+      standard: 'Email STANDARD: massimo 150-200 parole nel corpo. 3-4 punti specifici. Struttura chiara.',
+      formale: 'Email FORMALE: massimo 180-220 parole nel corpo. Tono istituzionale svizzero. Struttura classica.'
     };
 
-    const prompt = `Genera un'email di candidatura spontanea in italiano per l'azienda specificata.
+    const prompt = `Sei un esperto di recruiting e comunicazione professionale in Svizzera (Ticino).
+Genera un'email di candidatura spontanea in italiano che un recruiter può leggere e capire in 10 secondi.
 
 AZIENDA:
 - Nome: ${company.name}
@@ -68,7 +69,7 @@ AZIENDA:
 - Sito web: ${company.website || 'Non disponibile'}
 
 CANDIDATO:
-- Nome completo: ${cvData.nome} ${cvData.cognome}
+- Nome: ${cvData.nome} ${cvData.cognome}
 - Email: ${cvData.email}
 - Telefono: ${cvData.telefono}
 - Città: ${cvData.citta}
@@ -78,54 +79,91 @@ CANDIDATO:
 ${targetRole ? `- Ruolo desiderato: ${targetRole}` : ''}
 ${availability ? `- Disponibilità: ${availability}` : '- Disponibilità: immediata'}
 
-STILE: ${variantInstructions[variant]}
+LUNGHEZZA: ${variantInstructions[variant]}
 
-REGOLE IMPORTANTI:
-1. NON usare frasi generiche come "sono motivato" senza contenuto concreto
-2. Inserisci ALMENO 2-3 elementi specifici dal CV che matchano con il settore aziendale
-3. Se non hai info certe sull'azienda, NON inventare dettagli
-4. Tono professionale svizzero: diretto, chiaro, educato
-5. Includi sempre i contatti nella firma
+═══════════════════════════════════════
+REGOLE DI STILE SVIZZERO (OBBLIGATORIE)
+═══════════════════════════════════════
 
-FORMATTAZIONE - REGOLE CRITICHE PER MAILTO:
-- L'email sarà inviata tramite mailto: quindi DEVE essere SOLO TESTO SEMPLICE
-- NON usare MAI: asterischi **, HTML (<b>, <strong>), caratteri speciali
-- Il testo deve essere PULITO e compatibile con qualsiasi client email
+1. STRUTTURA A BLOCCHI SEPARATI
+   - Ogni paragrafo = massimo 2-3 righe
+   - Paragrafi separati da una riga vuota
+   - VIETATO il muro di testo
+   - Ogni paragrafo ha UNO scopo preciso
 
-EVIDENZIAZIONE INFORMAZIONI CHIAVE:
-Per permettere a recruiter e responsabili di produzione di capire i punti chiave in pochi secondi,
-evidenzia le informazioni più importanti usando UNO di questi metodi (scegli quello più naturale nel contesto):
-- MAIUSCOLO MODERATO: per 3-5 parole/espressioni chiave nell'intera email
-- [Parentesi quadre]: per informazioni tecniche specifiche
+2. GRASSETTO STRATEGICO (tag <b>)
+   Usa <b>...</b> SOLO per 4-6 elementi chiave nell'intera email:
+   - Il ruolo proposto (es: <b>Operaio specializzato – Verniciatura industriale</b>)
+   - 2-3 competenze tecniche principali (es: <b>verniciatura a spruzzo</b>, <b>controllo qualità</b>)
+   - La disponibilità (es: <b>disponibilità immediata</b>)
+   - Un punto di forza differenziante
+   NON abusare: massimo 6 grassetti in tutta l'email.
 
-COSA EVIDENZIARE (scegli 4-6 elementi tra questi):
-- Ruolo proposto: es. "come VERNICIATORE INDUSTRIALE" oppure "per la posizione di [verniciatore industriale]"
-- Competenze tecniche: es. "competenze in VERNICIATURA INDUSTRIALE" o "[verniciatura a spruzzo]"
-- Attività operative: es. "PREPARAZIONE SUPERFICI" o "[controllo qualità prodotto finito]"
-- Esperienza: es. "con OLTRE 5 ANNI di esperienza"
-- Disponibilità: es. "DISPONIBILITÀ IMMEDIATA" 
-- Qualità professionali: es. "attenzione a PRECISIONE e SICUREZZA"
+3. TONO
+   - Diretto, concreto, zero giri di parole
+   - Professionale ma semplice
+   - Sicuro, non disperato, non servile
+   - NO frasi generiche tipo "sono motivato e desideroso di nuove sfide"
+   - SÌ frasi concrete tipo "porto esperienza nella verniciatura industriale e nel controllo qualità"
 
-ESEMPIO CORPO EMAIL:
+4. PERSONALIZZAZIONE OBBLIGATORIA
+   - Menziona SEMPRE il nome dell'azienda
+   - Se il settore è noto, collega le competenze al settore
+   - Se la città è nota, menziona la vicinanza geografica
+
+5. STRUTTURA DELL'EMAIL (5 blocchi):
+
+   A. APERTURA (1-2 righe):
+      Saluto + chi sei + perché scrivi a LORO
+      Es: "mi rivolgo a ${company.name} per proporre la mia candidatura come <b>[ruolo]</b>."
+
+   B. VALORE (2-3 righe):
+      Le tue 2-3 competenze principali con esperienza concreta
+      Usa grassetto per le skill chiave
+
+   C. DIFFERENZIAZIONE (1-2 righe):
+      Cosa ti rende utile per loro specificamente
+      Precisione, qualità, autonomia, affidabilità
+
+   D. LOGISTICA (1 riga):
+      Posizione geografica + disponibilità (in grassetto)
+
+   E. CHIUSURA (1 riga):
+      Semplice invito al contatto, cordiali saluti
+
+6. FORMATTAZIONE
+   - L'email viene inviata come HTML
+   - Usa <b>...</b> per il grassetto (NON ** markdown, NON maiuscolo)
+   - NON usare elenchi puntati, bullet, o liste numerate
+   - Scrivi in paragrafi fluidi e naturali
+   - La firma NON fa parte del corpo
+
+═══════════════════════════════════════
+ESEMPIO DI EMAIL PERFETTA
+═══════════════════════════════════════
+
 "Gentile Responsabile,
 
-mi permetto di contattarVi per proporre la mia candidatura come VERNICIATORE INDUSTRIALE.
+mi permetto di contattare ${company.name} per proporre la mia candidatura come <b>Operaio specializzato – Verniciatura industriale</b>.
 
-Ho maturato oltre 5 anni di esperienza nella verniciatura industriale di superfici metalliche, 
-con competenze specifiche in [preparazione superfici], [verniciatura a spruzzo] e CONTROLLO QUALITÀ.
+Ho maturato esperienza concreta nella <b>verniciatura a spruzzo</b> di componenti metallici, nella <b>preparazione superfici</b> e nel <b>controllo qualità</b> del prodotto finito. Sono abituato a lavorare con precisione nel rispetto delle tempistiche produttive e delle norme di sicurezza.
 
-Sono abituato a lavorare nel rispetto delle norme di sicurezza e delle tempistiche produttive.
+La mia attenzione al dettaglio e l'abitudine a operare in autonomia mi permettono di integrarmi rapidamente in contesti produttivi strutturati.
 
-Sono disponibile con DISPONIBILITÀ IMMEDIATA e resto a disposizione per un colloquio conoscitivo.
+Risiedo a ${cvData.citta} e sono disponibile con <b>disponibilità immediata</b>.
+
+Resto a disposizione per un colloquio conoscitivo.
 
 Cordiali saluti"
 
-Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
+═══════════════════════════════════════
+
+Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backtick):
 {
-  "oggetto": "Oggetto email (testo semplice)",
-  "corpo": "Corpo email (testo semplice con evidenziazioni MAIUSCOLO o [parentesi])",
-  "firma": "Firma con contatti",
-  "matchPoints": ["punto1", "punto2", "punto3"]
+  "oggetto": "Oggetto email (testo semplice, senza grassetto)",
+  "corpo": "Corpo email HTML con <b> per grassetto. Paragrafi separati da doppio a-capo.",
+  "firma": "${cvData.nome} ${cvData.cognome}\\n${cvData.email}\\n${cvData.telefono}",
+  "matchPoints": ["competenza1 matchata", "competenza2 matchata", "competenza3 matchata"]
 }`;
 
     const response = await fetch(aiGatewayUrl, {
@@ -142,12 +180,24 @@ Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
             content: prompt
           }
         ],
-        temperature: 0.7,
+        temperature: 0.6,
         max_tokens: 2000
       }),
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Troppo richieste AI, riprova tra qualche secondo.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Crediti AI esauriti. Aggiungi crediti nelle impostazioni.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       const errorText = await response.text();
       console.error('AI Gateway error:', errorText);
       throw new Error(`AI request failed: ${response.status}`);
@@ -169,36 +219,29 @@ Rispondi SOLO con un oggetto JSON valido (senza markdown, senza backticks):
       }
       emailData = JSON.parse(jsonStr);
       
-      // Pulizia: rimuovi formattazioni non compatibili con mailto
-      const cleanForMailto = (text: string) => {
-        if (!text) return text;
-        return text
-          .replace(/\*\*/g, '')           // Rimuovi Markdown
-          .replace(/<\/?b>/gi, '')         // Rimuovi tag HTML <b>
-          .replace(/<\/?strong>/gi, '')    // Rimuovi tag HTML <strong>
-          .replace(/<\/?[^>]+(>|$)/g, ''); // Rimuovi qualsiasi altro tag HTML
-      };
-      
-      // Pulisci oggetto (non deve avere formattazioni)
+      // Clean subject line (no HTML in subject)
       if (emailData.oggetto) {
-        emailData.oggetto = cleanForMailto(emailData.oggetto);
+        emailData.oggetto = emailData.oggetto
+          .replace(/<\/?[^>]+(>|$)/g, '')
+          .replace(/\*\*/g, '');
       }
-      
-      // Il corpo può mantenere MAIUSCOLO e [parentesi] ma non HTML/Markdown
+
+      // Keep <b> tags in corpo, remove everything else
       if (emailData.corpo) {
+        // Remove markdown bold if AI used it instead of HTML
         emailData.corpo = emailData.corpo
-          .replace(/\*\*/g, '')
-          .replace(/<\/?b>/gi, '')
-          .replace(/<\/?strong>/gi, '')
-          .replace(/<\/?[^>]+(>|$)/g, '');
+          .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        
+        // Only allow <b> and </b> tags, remove any other HTML
+        emailData.corpo = emailData.corpo
+          .replace(/<(?!\/?b(?:\s|>))[^>]+>/gi, '');
       }
       
+      // Clean firma
       if (emailData.firma) {
         emailData.firma = emailData.firma
-          .replace(/\*\*/g, '')
-          .replace(/<\/?b>/gi, '')
-          .replace(/<\/?strong>/gi, '')
-          .replace(/<\/?[^>]+(>|$)/g, '');
+          .replace(/<\/?[^>]+(>|$)/g, '')
+          .replace(/\*\*/g, '');
       }
       
     } catch (parseError) {
