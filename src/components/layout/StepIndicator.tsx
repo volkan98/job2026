@@ -1,4 +1,4 @@
-import { Check, Upload, FileText, Building2, Mail, History } from 'lucide-react';
+import { Check, Upload, FileText, Building2, Mail, History, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Step {
@@ -13,6 +13,7 @@ const steps: Step[] = [
   { id: 2, label: 'Trova Aziende', icon: <Building2 className="h-4 w-4" /> },
   { id: 3, label: 'Email & Invio', icon: <Mail className="h-4 w-4" /> },
   { id: 4, label: 'Già Inviato', icon: <History className="h-4 w-4" /> },
+  { id: 5, label: 'Auto Mode', icon: <Rocket className="h-4 w-4" /> },
 ];
 
 interface StepIndicatorProps {

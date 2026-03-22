@@ -8,6 +8,7 @@ import { CVSummary } from '@/components/cv/CVSummary';
 import { CompanySearch } from '@/components/companies/CompanySearch';
 import { EmailComposer } from '@/components/email/EmailComposer';
 import { SentEmailsHistory } from '@/components/email/SentEmailsHistory';
+import { AutoCampaignDashboard } from '@/components/auto/AutoCampaignDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function MainContent() {
@@ -24,6 +25,8 @@ function MainContent() {
       return <EmailComposer />;
     case 4:
       return <SentEmailsHistory />;
+    case 5:
+      return <AutoCampaignDashboard />;
     default:
       return <CVUploader />;
   }

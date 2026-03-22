@@ -14,6 +14,229 @@ export type Database = {
   }
   public: {
     Tables: {
+      auto_campaigns: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_search_cycle: number | null
+          cv_file_path: string | null
+          email_style: string
+          id: string
+          include_risky: boolean | null
+          last_processed_at: string | null
+          max_search_cycles: number | null
+          only_selected_city: boolean | null
+          pause_reason: string | null
+          resume_at: string | null
+          search_keywords: string[]
+          search_location: string
+          search_location_query: string | null
+          search_radius: number
+          started_at: string | null
+          status: string
+          target_total: number
+          total_failed: number | null
+          total_found: number | null
+          total_generated: number | null
+          total_sent: number | null
+          total_skipped: number | null
+          total_validated: number | null
+          updated_at: string | null
+          user_city: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_search_cycle?: number | null
+          cv_file_path?: string | null
+          email_style?: string
+          id?: string
+          include_risky?: boolean | null
+          last_processed_at?: string | null
+          max_search_cycles?: number | null
+          only_selected_city?: boolean | null
+          pause_reason?: string | null
+          resume_at?: string | null
+          search_keywords?: string[]
+          search_location: string
+          search_location_query?: string | null
+          search_radius?: number
+          started_at?: string | null
+          status?: string
+          target_total?: number
+          total_failed?: number | null
+          total_found?: number | null
+          total_generated?: number | null
+          total_sent?: number | null
+          total_skipped?: number | null
+          total_validated?: number | null
+          updated_at?: string | null
+          user_city?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_search_cycle?: number | null
+          cv_file_path?: string | null
+          email_style?: string
+          id?: string
+          include_risky?: boolean | null
+          last_processed_at?: string | null
+          max_search_cycles?: number | null
+          only_selected_city?: boolean | null
+          pause_reason?: string | null
+          resume_at?: string | null
+          search_keywords?: string[]
+          search_location?: string
+          search_location_query?: string | null
+          search_radius?: number
+          started_at?: string | null
+          status?: string
+          target_total?: number
+          total_failed?: number | null
+          total_found?: number | null
+          total_generated?: number | null
+          total_sent?: number | null
+          total_skipped?: number | null
+          total_validated?: number | null
+          updated_at?: string | null
+          user_city?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      campaign_events: {
+        Row: {
+          campaign_id: string
+          created_at: string | null
+          event_type: string
+          id: string
+          message: string | null
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string | null
+          event_type: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "auto_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_queue: {
+        Row: {
+          campaign_id: string
+          company_address: string | null
+          company_city: string | null
+          company_email: string | null
+          company_name: string
+          company_phone: string | null
+          company_sector: string | null
+          company_source: string | null
+          company_website: string | null
+          confidence_score: number | null
+          contact_final_status: string | null
+          created_at: string | null
+          email_body: string | null
+          email_firma: string | null
+          email_source_url: string | null
+          email_subject: string | null
+          error_message: string | null
+          id: string
+          max_retries: number | null
+          next_retry_at: string | null
+          processed_at: string | null
+          retry_count: number | null
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          company_address?: string | null
+          company_city?: string | null
+          company_email?: string | null
+          company_name: string
+          company_phone?: string | null
+          company_sector?: string | null
+          company_source?: string | null
+          company_website?: string | null
+          confidence_score?: number | null
+          contact_final_status?: string | null
+          created_at?: string | null
+          email_body?: string | null
+          email_firma?: string | null
+          email_source_url?: string | null
+          email_subject?: string | null
+          error_message?: string | null
+          id?: string
+          max_retries?: number | null
+          next_retry_at?: string | null
+          processed_at?: string | null
+          retry_count?: number | null
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          company_address?: string | null
+          company_city?: string | null
+          company_email?: string | null
+          company_name?: string
+          company_phone?: string | null
+          company_sector?: string | null
+          company_source?: string | null
+          company_website?: string | null
+          confidence_score?: number | null
+          contact_final_status?: string | null
+          created_at?: string | null
+          email_body?: string | null
+          email_firma?: string | null
+          email_source_url?: string | null
+          email_subject?: string | null
+          error_message?: string | null
+          id?: string
+          max_retries?: number | null
+          next_retry_at?: string | null
+          processed_at?: string | null
+          retry_count?: number | null
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "auto_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null
