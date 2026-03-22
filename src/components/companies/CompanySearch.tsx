@@ -575,6 +575,7 @@ export function CompanySearch() {
           <div className="space-y-3">
             {filteredAziende.map(azienda => {
               const isSelected = aziendeSelezionate.some(a => a.id === azienda.id);
+              const canSelect = azienda.finalStatus === 'ready_to_send' && !!azienda.email;
               
               return (
                 <Card 
@@ -582,15 +583,15 @@ export function CompanySearch() {
                   className={`transition-all cursor-pointer ${
                     isSelected ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-accent/50'
                   }`}
-                  onClick={() => azienda.email && toggleAzienda(azienda)}
+                  onClick={() => canSelect && toggleAzienda(azienda)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
                       <div className="pt-1">
                         <Checkbox 
                           checked={isSelected}
-                          disabled={!azienda.email}
-                          onCheckedChange={() => azienda.email && toggleAzienda(azienda)}
+                          disabled={!canSelect}
+                          onCheckedChange={() => canSelect && toggleAzienda(azienda)}
                         />
                       </div>
                       
@@ -602,8 +603,14 @@ export function CompanySearch() {
                           </h3>
                           <div className="flex gap-2 flex-wrap">
                             <Badge variant="secondary">{azienda.settore}</Badge>
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            <Badge variant="outline" className="text-xs">
                               📍 {azienda.distanza} km – ⏱️ {azienda.tempoPercorrenza || 'n/d'} da {originCity}
+                            </Badge>
+                            <Badge variant={azienda.finalStatus === 'ready_to_send' ? 'default' : 'outline'} className="text-xs">
+                              {azienda.finalStatus === 'ready_to_send' ? 'Pronta per invio' : azienda.finalStatus === 'risky_send' ? 'Invio rischioso' : 'Scartata'}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              Score: {azienda.confidenceScore || 0}
                             </Badge>
                           </div>
                         </div>
@@ -616,42 +623,19 @@ export function CompanySearch() {
                           
                           <div className="flex items-center gap-2 flex-wrap">
                             {azienda.email ? (
-                              <div className="flex flex-col gap-1">
+                              <div className="flex flex-col gap-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  {/* Icona in base al livello di verifica */}
                                   {azienda.emailVerified === 'verified_official' ? (
-                                    <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" />
+                                    <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
                                   ) : azienda.emailVerified === 'verified_directory' ? (
-                                    <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                                    <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
                                   ) : azienda.emailVerified === 'directory_only' ? (
-                                    <ShieldQuestion className="h-4 w-4 text-amber-500 shrink-0" />
+                                    <ShieldQuestion className="h-4 w-4 text-muted-foreground shrink-0" />
                                   ) : (
-                                    <ShieldAlert className="h-4 w-4 text-orange-400 shrink-0" />
+                                    <ShieldAlert className="h-4 w-4 text-muted-foreground shrink-0" />
                                   )}
                                   <span className="text-foreground truncate">{azienda.email}</span>
-                                  {/* Badge di verifica */}
-                                  {azienda.emailVerified === 'verified_official' && (
-                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
-                                      ✓ Verificata
-                                    </Badge>
-                                  )}
-                                  {azienda.emailVerified === 'verified_directory' && (
-                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
-                                      ✓ Confermata
-                                    </Badge>
-                                  )}
-                                  {azienda.emailVerified === 'directory_only' && (
-                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
-                                      ⚠ Da verificare
-                                    </Badge>
-                                  )}
-                                  {azienda.emailVerified === 'unverified' && (
-                                    <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200 text-xs">
-                                      ? Non verificata
-                                    </Badge>
-                                  )}
                                 </div>
-                                {/* Fonte dell'email */}
                                 {azienda.emailSource && (
                                   <a 
                                     href={azienda.emailSource.startsWith('http') ? azienda.emailSource : `https://${azienda.emailSource}`}
@@ -661,15 +645,41 @@ export function CompanySearch() {
                                     onClick={e => e.stopPropagation()}
                                   >
                                     <Link2 className="h-3 w-3" />
-                                    <span className="truncate max-w-[200px]">Fonte: {azienda.emailSource.replace(/^https?:\/\//, '').split('/')[0]}</span>
+                                    <span className="truncate max-w-[220px]">Fonte: {azienda.emailSource}</span>
+                                  </a>
+                                )}
+                                {azienda.contactFormUrl && (
+                                  <a 
+                                    href={azienda.contactFormUrl.startsWith('http') ? azienda.contactFormUrl : `https://${azienda.contactFormUrl}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    <span className="truncate max-w-[220px]">Form contatto disponibile</span>
                                   </a>
                                 )}
                               </div>
                             ) : (
-                              <>
-                                <XCircle className="h-4 w-4 text-muted-foreground shrink-0" />
-                                <span className="text-muted-foreground italic">Email non trovata</span>
-                              </>
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <XCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  <span className="text-muted-foreground italic">Nessuna email disponibile</span>
+                                </div>
+                                {azienda.contactFormUrl && (
+                                  <a 
+                                    href={azienda.contactFormUrl.startsWith('http') ? azienda.contactFormUrl : `https://${azienda.contactFormUrl}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    <span>Usa form contatto</span>
+                                  </a>
+                                )}
+                              </div>
                             )}
                           </div>
                           
@@ -684,7 +694,7 @@ export function CompanySearch() {
                             <div className="flex items-center gap-2">
                               <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
                               <a 
-                                href={azienda.sito.startsWith('http') ? azienda.sito : `https://${azienda.sito}`} 
+                                href={azienda.sito.startsWith('http') ? azienda.sito : `https://${azienda.sito}`}
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline flex items-center gap-1 truncate"
@@ -695,6 +705,14 @@ export function CompanySearch() {
                               </a>
                             </div>
                           )}
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Badge variant="outline" className="text-xs">Dominio: {azienda.domainValid ? '✅ valido' : '❌ non valido'}</Badge>
+                          <Badge variant="outline" className="text-xs">Email esplicita: {azienda.emailExplicit ? '✅ sì' : '❌ no'}</Badge>
+                          <Badge variant="outline" className="text-xs">Fonte: {azienda.emailSourceType || 'n/d'}</Badge>
+                          <Badge variant="outline" className="text-xs">SMTP: {azienda.smtpStatus || 'n/d'}</Badge>
+                          <Badge variant="outline" className="text-xs">Catch-all: {azienda.catchAll ? 'Sì' : 'No'}</Badge>
                         </div>
                         
                         <p className="text-xs text-muted-foreground mt-2">
