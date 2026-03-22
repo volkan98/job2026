@@ -351,7 +351,7 @@ export function CompanySearch() {
   };
 
   const selectAll = () => {
-    const readyCompanies = filteredAziende.filter(a => a.email && a.finalStatus === 'ready_to_send');
+    const readyCompanies = filteredAziende.filter(a => a.email && a.finalStatus !== 'discarded');
     setAziendeSelezionate(readyCompanies);
   };
 
