@@ -48,7 +48,8 @@ interface LocalEmailTemplate {
 }
 
 export function EmailComposer() {
-  const { cvData, aziendeSelezionate, logInvii, addLogInvio, setCurrentStep } = useCVContext();
+  const { cvData, cvFile, aziendeSelezionate, logInvii, addLogInvio, setCurrentStep } = useCVContext();
+  const { profile } = useUserProfile();
   const { toast } = useToast();
   const { 
     connectedProviders, 
