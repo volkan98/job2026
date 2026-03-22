@@ -735,74 +735,79 @@ Calcola distanza e tempo da ${originCity}.`;
     // Convert map to sorted array
     let companies = Array.from(allCompanies.values());
 
-    // ═══════════════════════════════════════════════
-    // DNS MX VALIDATION: Verify email domains actually exist
-    // ═══════════════════════════════════════════════
-    console.log('--- DNS MX Validation ---');
+    console.log('--- DNS + recipient-level validation ---');
     const companiesWithEmail = companies.filter(c => c.email);
     let invalidatedCount = 0;
 
     if (companiesWithEmail.length > 0) {
       const validationResults = await batchValidateEmails(companiesWithEmail);
-      
-      companies = companies.map(c => {
-        if (!c.email) return c;
-        
-        const isValid = validationResults.get(c.email);
-        if (isValid === false) {
-          console.log(`🚫 DNS validation failed for ${c.email} (${c.name}) - removing email`);
-          invalidatedCount++;
+
+      companies = companies.map((c) => {
+        if (!c.email) {
           return {
             ...c,
+            confidence_score: 0,
+            final_status: c.contact_form_url ? 'risky_send' : 'discarded',
+          };
+        }
+
+        const validation = validationResults.get(c.email);
+        const domainValid = validation?.domain_valid ?? false;
+        const smtpStatus = validation?.smtp_status ?? 'invalid_email';
+        const catchAll = validation?.catch_all ?? false;
+
+        let next: CompanyResult = {
+          ...c,
+          domain_valid: domainValid,
+          smtp_status: smtpStatus,
+          catch_all: catchAll,
+        };
+
+        if (!domainValid || smtpStatus === 'invalid_email') {
+          invalidatedCount++;
+          next = {
+            ...next,
             email: null,
             email_verified: null,
             email_source: null,
-            contact_type: 'phone_only',
+            confidence_score: 0,
+            final_status: next.contact_form_url ? 'risky_send' : 'discarded',
+            contact_type: next.contact_form_url ? 'form_only' : 'phone_only',
           };
+          return next;
         }
-        
-        // If DNS is valid, upgrade unverified to at least dns_verified
-        if (isValid === true && c.email_verified === 'unverified') {
-          return { ...c, email_verified: 'directory_only' };
-        }
-        
-        return c;
+
+        next.confidence_score = computeConfidence(next);
+        next.final_status = determineFinalStatus(next);
+        return next;
       });
-      
-      console.log(`DNS validation: ${invalidatedCount} emails invalidated out of ${companiesWithEmail.length}`);
-      searchStats.companiesPerPass.push({ 
-        pass: `Validazione DNS`, 
-        found: companiesWithEmail.length, 
-        new: -invalidatedCount 
+
+      searchStats.companiesPerPass.push({
+        pass: 'Validazione recipient-level',
+        found: companiesWithEmail.length,
+        new: -invalidatedCount,
       });
     }
 
-    // Sort: email first, then by verification, then by distance
     const verificationPriority: Record<string, number> = {
-      'verified_official': 1,
-      'verified_directory': 2,
-      'directory_only': 3,
-      'unverified': 4,
+      'ready_to_send': 1,
+      'risky_send': 2,
+      'discarded': 3,
     };
 
     companies.sort((a, b) => {
-      const aHasEmail = a.email ? 1 : 0;
-      const bHasEmail = b.email ? 1 : 0;
-      if (aHasEmail !== bHasEmail) return bHasEmail - aHasEmail;
-
-      if (a.email && b.email) {
-        const aPriority = verificationPriority[a.email_verified || ''] || 5;
-        const bPriority = verificationPriority[b.email_verified || ''] || 5;
-        if (aPriority !== bPriority) return aPriority - bPriority;
-      }
-
-      return (a.distance_km || 999) - (b.distance_km || 999);
+      const aPriority = verificationPriority[a.final_status || 'discarded'] || 4;
+      const bPriority = verificationPriority[b.final_status || 'discarded'] || 4;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      return (b.confidence_score || 0) - (a.confidence_score || 0) || ((a.distance_km || 999) - (b.distance_km || 999));
     });
 
     const emailStats = {
       total: companies.length,
       withEmail: companies.filter(c => c.email).length,
-      verified: companies.filter(c => ['verified_official', 'verified_directory'].includes(c.email_verified || '')).length,
+      readyToSend: companies.filter(c => c.final_status === 'ready_to_send').length,
+      riskySend: companies.filter(c => c.final_status === 'risky_send').length,
+      discarded: companies.filter(c => c.final_status === 'discarded').length,
       dnsInvalidated: invalidatedCount,
     };
 
