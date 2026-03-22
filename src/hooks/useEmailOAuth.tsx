@@ -110,6 +110,8 @@ export function useEmailOAuth() {
         // Store provider and current step for callback
         sessionStorage.setItem('oauth_provider', provider);
         sessionStorage.setItem('oauth_return_step', '3');
+        
+        // State is already persisted in sessionStorage by CVContext
         // Redirect to OAuth
         window.location.href = data.authUrl;
       } else {
