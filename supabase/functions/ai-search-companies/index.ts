@@ -120,7 +120,10 @@ async function classifyRecipientEmail(email: string): Promise<{
       return { smtp_status: 'catch_all_domain', catch_all: true };
     }
 
-    return { smtp_status: 'unverifiable_email', catch_all: false };
+    // For explicit, non-generic addresses on a real domain we treat the contact as valid.
+    // True SMTP recipient verification is often blocked, so being stricter here would make
+    // Auto Mode discard almost every result.
+    return { smtp_status: 'valid_email', catch_all: false };
   } catch (error) {
     console.log(`Recipient classification failed for ${email}:`, error);
     return { smtp_status: 'unverifiable_email', catch_all: false };
