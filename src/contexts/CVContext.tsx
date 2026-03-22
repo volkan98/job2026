@@ -27,10 +27,28 @@ export function CVProvider({ children }: { children: ReactNode }) {
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [sintesiBreve, setSintesiBreve] = useState('');
   const [sintesiCompleta, setSintesiCompleta] = useState('');
-  const [aziendeSelezionate, setAziendeSelezionate] = useState<Azienda[]>([]);
+  const [aziendeSelezionate, setAziendeSelezionateRaw] = useState<Azienda[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('cv_aziende_selezionate');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const setAziendeSelezionate = (aziende: Azienda[]) => {
+    setAziendeSelezionateRaw(aziende);
+    try { sessionStorage.setItem('cv_aziende_selezionate', JSON.stringify(aziende)); } catch {}
+  };
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplate | null>(null);
   const [logInvii, setLogInvii] = useState<LogInvio[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStepRaw] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('cv_current_step');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch { return 0; }
+  });
+  const setCurrentStep = (step: number) => {
+    setCurrentStepRaw(step);
+    try { sessionStorage.setItem('cv_current_step', String(step)); } catch {}
+  };
 
   const addLogInvio = (log: LogInvio) => {
     setLogInvii(prev => [log, ...prev]);
