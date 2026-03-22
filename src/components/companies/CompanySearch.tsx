@@ -302,13 +302,20 @@ export function CompanySearch() {
         return false;
       }
     }
-    // Escludi aziende già contattate (per email o dominio)
+    // Escludi aziende già contattate (per email, dominio O nome azienda)
     if (az.email) {
       const emailLower = az.email.toLowerCase();
       const domain = emailLower.split('@')[1];
       if (sentEmails.has(emailLower) || (domain && sentDomains.has(domain))) {
         return false;
       }
+    }
+    // Controlla anche per nome azienda (fuzzy match senza suffissi legali)
+    const normalizedName = az.nome.toLowerCase().trim()
+      .replace(/\s*(sa|sagl|srl|spa|snc|sas|ag|gmbh|ltd|s\.a\.|s\.r\.l\.)\s*$/i, '')
+      .trim();
+    if (sentCompanyNames.has(normalizedName)) {
+      return false;
     }
     return true;
   });
