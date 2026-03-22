@@ -273,11 +273,12 @@ async function sendOutlookEmail(
   body: string,
   attachment?: EmailAttachment
 ) {
+  const htmlBody = bodyToHtml(body);
   const message: any = {
     subject,
     body: {
-      contentType: 'Text',
-      content: body,
+      contentType: 'HTML',
+      content: htmlBody,
     },
     toRecipients: [{ emailAddress: { address: to } }],
   };
