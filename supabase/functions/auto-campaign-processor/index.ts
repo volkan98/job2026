@@ -313,7 +313,7 @@ async function processCampaign(sb: any, campaign: any) {
       .toISOString();
     await sb.from("auto_campaigns").update({
       status: "paused",
-      pause_reason: `Limite orario (${HOURLY_LIMIT}) raggiunto`,
+      pause_reason: `Limite orario (${HOURLY_LIMIT}) raggiunto — ${hourlySent} email totali inviate nell'ultima ora (campagna + manuali)`,
       resume_at: resumeAt,
       updated_at: new Date().toISOString(),
     }).eq("id", campaignId);
@@ -322,7 +322,7 @@ async function processCampaign(sb: any, campaign: any) {
       campaignId,
       userId,
       "paused_rate_limit",
-      `Pausa anti-spam di ${COOLDOWN_MINUTES} minuti`,
+      `Pausa anti-spam di ${COOLDOWN_MINUTES} minuti (${hourlySent}/${HOURLY_LIMIT} email nell'ultima ora)`,
     );
     return;
   }
