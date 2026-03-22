@@ -485,46 +485,30 @@ Deno.serve(async (req) => {
 
     const baseSystemPrompt = `Sei un esperto database vivente di aziende svizzere e italiane. Il tuo compito è generare una lista di aziende REALI.
 
-═══════════════════════════════════════════════════════════════
-⛔ REGOLA CRITICA ASSOLUTA - EMAIL ⛔
-═══════════════════════════════════════════════════════════════
+⛔ REGOLA ASSOLUTA: NON INVENTARE, NON DEDURRE, NON IPOTIZZARE email.
+Inserisci un'email SOLO se compare ESPLICITAMENTE nella fonte.
 
-NON INVENTARE, NON DEDURRE, NON IPOTIZZARE email.
-NON generare email basandoti su pattern (es. "hr@dominio.ch", "jobs@azienda.com").
-NON costruire email partendo dal nome di dominio del sito web.
+ACCETTA email SOLO se:
+- compare nel testo della pagina
+- oppure è presente in un link mailto:
+- oppure proviene da una fonte pubblica verificabile con URL esatto
 
-L'AI ha la tendenza a INVENTARE email che SEMBRANO plausibili ma NON ESISTONO.
-Questo causa errori 550 "address unknown" e danni alla reputazione del mittente.
-
-UNICA REGOLA: Inserisci un'email SOLO SE la conosci con CERTEZZA perché:
-- L'hai vista ESPLICITAMENTE pubblicata su un sito web reale
-- È presente in una directory pubblica verificabile (local.ch, search.ch, etc.)
-- Puoi indicare l'URL ESATTO della pagina dove appare
-
-Se hai anche il MINIMO DUBBIO → email = null, email_source = null
-Se non ricordi la fonte ESATTA → email = null, email_source = null
-Se stai "deducendo" l'email dal dominio → email = null, email_source = null
-
-È MOLTO MEGLIO restituire email = null che un'email inventata.
-Le email inventate causano BOUNCE e possono far BLOCCARE l'account Gmail dell'utente.
+NON accettare email dedotte dal pattern del dominio.
+NON accettare email ipotetiche come info@, hr@, jobs@ se non sono scritte esplicitamente nella fonte.
+Se hai dubbi → email = null.
 
 ESCLUDI sempre: info@, contact@, admin@, support@, noreply@, segreteria@, vendite@, marketing@
-CERCA solo: hr@, jobs@, careers@, recruiting@, personale@, nome.cognome@
+CERCA solo contatti utili a candidature lavorative.
 
-REGOLE AZIENDE:
-- Le keyword rappresentano il LAVORO che il candidato vuole FARE
-- Trova aziende che ASSUMONO per quel lavoro, NON negozi che vendono prodotti correlati
-- Keyword "Verniciatura" → ✅ Carrozzerie, verniciatura industriale → ❌ Colorifici
-- Keyword "Agenzie" → ✅ Agenzie interinali/collocamento → ❌ Agenzie immobiliari/viaggi
+Per ogni azienda restituisci anche:
+- email_source_type: page_text | mailto | verified_directory | unknown
+- contact_form_url: URL del form contatto/careers se disponibile
 
-CAMPO email_source - OBBLIGATORIO SE email != null:
-- Deve essere un URL REALE e SPECIFICO (es. https://www.azienda.ch/contatti)
-- NON mettere URL generici tipo "https://www.azienda.ch" 
-- NON mettere "local.ch" senza URL completo
-- Se non hai l'URL specifico → email = null
+Le keyword rappresentano il lavoro che il candidato vuole fare.
+Trova datori di lavoro reali, non rivenditori di prodotti correlati.
 
-Rispondi SOLO con un array JSON valido (senza markdown, senza backticks).
-Formato: [{"name":"...","sector":"...","address":"...","city":"...","website":"...","email":"null o SOLO email REALE trovata su fonte verificabile","email_verified":"verified_official|verified_directory|directory_only|null","email_source":"URL ESATTO della pagina dove hai visto l'email, o null","phone":"...o null","contact_type":"generic|hr|jobs|form_only|phone_only","source":"...","match_score":85,"match_reasons":["..."],"distance_km":15,"travel_time":"25 min"}]`;
+Rispondi SOLO con un array JSON valido.
+Formato: [{"name":"...","sector":"...","address":"...","city":"...","website":"...","email":"...o null","email_verified":"verified_official|verified_directory|directory_only|unverified|null","email_source":"URL o null","email_source_type":"page_text|mailto|verified_directory|unknown|null","phone":"...o null","contact_type":"generic|hr|jobs|form_only|phone_only","source":"...","match_score":85,"match_reasons":["..."],"distance_km":15,"travel_time":"25 min","contact_form_url":"https://... o null"}]`;
 
     const targetCount = minResults;
 
