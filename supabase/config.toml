@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.ai-search-companies]
 verify_jwt = false
+
+[functions.auto-campaign-processor]
+verify_jwt = false
