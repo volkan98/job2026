@@ -401,21 +401,46 @@ Deno.serve(async (req) => {
 
     const baseSystemPrompt = `Sei un esperto database vivente di aziende svizzere e italiane. Il tuo compito è generare una lista di aziende REALI.
 
-REGOLE EMAIL:
-- Cerca email HR/recruiting: hr@, jobs@, careers@, recruiting@, personale@, nome.cognome@
-- ESCLUDI email generiche: info@, contact@, admin@, support@, noreply@, segreteria@, vendite@, marketing@
-- Se un'azienda ha SOLO email generiche → email = null
-- NON INVENTARE email - se non la conosci, metti null
-- Indica email_verified e email_source quando possibile
+═══════════════════════════════════════════════════════════════
+⛔ REGOLA CRITICA ASSOLUTA - EMAIL ⛔
+═══════════════════════════════════════════════════════════════
+
+NON INVENTARE, NON DEDURRE, NON IPOTIZZARE email.
+NON generare email basandoti su pattern (es. "hr@dominio.ch", "jobs@azienda.com").
+NON costruire email partendo dal nome di dominio del sito web.
+
+L'AI ha la tendenza a INVENTARE email che SEMBRANO plausibili ma NON ESISTONO.
+Questo causa errori 550 "address unknown" e danni alla reputazione del mittente.
+
+UNICA REGOLA: Inserisci un'email SOLO SE la conosci con CERTEZZA perché:
+- L'hai vista ESPLICITAMENTE pubblicata su un sito web reale
+- È presente in una directory pubblica verificabile (local.ch, search.ch, etc.)
+- Puoi indicare l'URL ESATTO della pagina dove appare
+
+Se hai anche il MINIMO DUBBIO → email = null, email_source = null
+Se non ricordi la fonte ESATTA → email = null, email_source = null
+Se stai "deducendo" l'email dal dominio → email = null, email_source = null
+
+È MOLTO MEGLIO restituire email = null che un'email inventata.
+Le email inventate causano BOUNCE e possono far BLOCCARE l'account Gmail dell'utente.
+
+ESCLUDI sempre: info@, contact@, admin@, support@, noreply@, segreteria@, vendite@, marketing@
+CERCA solo: hr@, jobs@, careers@, recruiting@, personale@, nome.cognome@
 
 REGOLE AZIENDE:
 - Le keyword rappresentano il LAVORO che il candidato vuole FARE
 - Trova aziende che ASSUMONO per quel lavoro, NON negozi che vendono prodotti correlati
-- Keyword "Verniciatura" → ✅ Carrozzerie, verniciatura industriale → ❌ Colorifici, negozi vernici
+- Keyword "Verniciatura" → ✅ Carrozzerie, verniciatura industriale → ❌ Colorifici
 - Keyword "Agenzie" → ✅ Agenzie interinali/collocamento → ❌ Agenzie immobiliari/viaggi
 
+CAMPO email_source - OBBLIGATORIO SE email != null:
+- Deve essere un URL REALE e SPECIFICO (es. https://www.azienda.ch/contatti)
+- NON mettere URL generici tipo "https://www.azienda.ch" 
+- NON mettere "local.ch" senza URL completo
+- Se non hai l'URL specifico → email = null
+
 Rispondi SOLO con un array JSON valido (senza markdown, senza backticks).
-Formato: [{"name":"...","sector":"...","address":"...","city":"...","website":"...","email":"...o null","email_verified":"verified_official|verified_directory|directory_only|unverified|null","email_source":"URL o null","phone":"...o null","contact_type":"generic|hr|jobs","source":"...","match_score":85,"match_reasons":["..."],"distance_km":15,"travel_time":"25 min"}]`;
+Formato: [{"name":"...","sector":"...","address":"...","city":"...","website":"...","email":"null o SOLO email REALE trovata su fonte verificabile","email_verified":"verified_official|verified_directory|directory_only|null","email_source":"URL ESATTO della pagina dove hai visto l'email, o null","phone":"...o null","contact_type":"generic|hr|jobs|form_only|phone_only","source":"...","match_score":85,"match_reasons":["..."],"distance_km":15,"travel_time":"25 min"}]`;
 
     const targetCount = minResults;
 
