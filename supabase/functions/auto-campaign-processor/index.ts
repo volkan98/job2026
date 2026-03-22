@@ -393,7 +393,7 @@ async function processCampaign(sb: any, campaign: any) {
   }
 
   // STEP 2: Send generated emails (up to remaining rate limit)
-  const canSend = Math.min(EMAILS_PER_INVOCATION, HOURLY_LIMIT - hourlySent, BURST_LIMIT - hourlySent);
+  const canSend = Math.min(EMAILS_PER_INVOCATION, HOURLY_LIMIT - hourlySent);
   if (canSend <= 0) return;
 
   const { data: readyItems } = await sb.from('campaign_queue').select('*')
