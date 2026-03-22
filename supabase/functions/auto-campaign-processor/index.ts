@@ -7,12 +7,12 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || '';
 const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
 const HOURLY_LIMIT = 15;
-const BURST_LIMIT = 8;
-const COOLDOWN_MINUTES = 10;
+const COOLDOWN_MINUTES = 9;
 const EMAILS_PER_INVOCATION = 3;
 
 function supabaseAdmin() {
