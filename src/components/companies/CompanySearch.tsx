@@ -579,7 +579,7 @@ export function CompanySearch() {
           <div className="space-y-3">
             {filteredAziende.map(azienda => {
               const isSelected = aziendeSelezionate.some(a => a.id === azienda.id);
-              const canSelect = azienda.finalStatus === 'ready_to_send' && !!azienda.email;
+              const canSelect = !!azienda.email && azienda.finalStatus !== 'discarded';
               
               return (
                 <Card 
