@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAutoCampaign, CampaignSetupData } from '@/hooks/useAutoCampaign';
@@ -16,7 +16,7 @@ import {
   Rocket, Pause, Play, Square, Search, Send, AlertTriangle,
   CheckCircle2, Clock, XCircle, Loader2, Sparkles, Building2,
   Mail, Shield, Timer, RotateCcw, Zap, Activity, Target,
-  TrendingUp, RefreshCw
+  TrendingUp, RefreshCw, Terminal
 } from 'lucide-react';
 
 const KEYWORDS = [
@@ -355,38 +355,8 @@ function CampaignDashboard() {
         </Card>
       </div>
 
-      {/* Two columns: Events + Queue */}
+      {/* Two columns: Queue + Live Console */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Event Log */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />
-              Attività recenti
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[300px]">
-              <div className="space-y-1 p-4">
-                {events.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nessun evento ancora</p>
-                )}
-                {events.map(event => (
-                  <div key={event.id} className="flex items-start gap-2 py-2 border-b border-border/50 last:border-0">
-                    <EventIcon type={event.event_type} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">{event.message}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(event.created_at).toLocaleTimeString('it-IT')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
         {/* Queue Status */}
         <Card>
           <CardHeader className="pb-3">
@@ -414,6 +384,9 @@ function CampaignDashboard() {
             </ScrollArea>
           </CardContent>
         </Card>
+
+        {/* Live Console */}
+        <LiveConsole events={events} />
       </div>
 
       {/* Campaign Info */}
@@ -429,6 +402,64 @@ function CampaignDashboard() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function LiveConsole({ events }: { events: { id: string; event_type: string; message: string; created_at: string; metadata: any }[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [events.length]);
+
+  const getLogColor = (type: string) => {
+    if (['email_sent', 'search_completed', 'auto_resume', 'target_completed'].includes(type)) return 'text-green-400';
+    if (['send_failed', 'error'].includes(type)) return 'text-red-400';
+    if (['paused_rate_limit', 'rate_limit', 'search_empty'].includes(type)) return 'text-yellow-400';
+    if (['search_started'].includes(type)) return 'text-blue-400';
+    return 'text-gray-300';
+  };
+
+  const getPrefix = (type: string) => {
+    if (['email_sent', 'search_completed', 'auto_resume', 'target_completed'].includes(type)) return '✓';
+    if (['send_failed', 'error'].includes(type)) return '✗';
+    if (['paused_rate_limit', 'rate_limit'].includes(type)) return '⏸';
+    if (['search_started'].includes(type)) return '→';
+    if (['search_empty', 'search_exhausted'].includes(type)) return '⚠';
+    return '•';
+  };
+
+  return (
+    <Card className="bg-[#1e1e2e] border-[#313244]">
+      <CardHeader className="pb-2 pt-3 px-4">
+        <CardTitle className="text-sm flex items-center gap-2 text-gray-300">
+          <Terminal className="h-4 w-4 text-green-400" />
+          <span className="font-mono">Console Live</span>
+          <span className="ml-auto text-[10px] font-mono text-gray-500">{events.length} eventi</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div ref={scrollRef} className="h-[300px] overflow-y-auto font-mono text-xs px-4 pb-3">
+          {events.length === 0 && (
+            <div className="flex items-center gap-2 py-4 text-gray-500">
+              <span className="animate-pulse">▌</span>
+              <span>In attesa di eventi...</span>
+            </div>
+          )}
+          {events.map((event, i) => (
+            <div key={event.id} className="py-0.5 flex gap-2 leading-5">
+              <span className="text-gray-600 shrink-0 select-none">
+                {new Date(event.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span className={`shrink-0 ${getLogColor(event.event_type)}`}>{getPrefix(event.event_type)}</span>
+              <span className={getLogColor(event.event_type)}>{event.message}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
