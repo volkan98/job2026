@@ -630,10 +630,30 @@ export function EmailComposer() {
                       />
                     </div>
 
-                    <div className="flex items-center gap-2 p-3 bg-accent/50 rounded-lg">
-                      <Paperclip className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Allegato:</span>
-                      <Badge variant="outline">CV da allegare manualmente</Badge>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-accent/50 border">
+                      <div className="flex items-center gap-2">
+                        <Paperclip className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">Allega CV</span>
+                        {profile?.cv_file_path ? (
+                          <Badge variant="outline" className="text-xs">
+                            {profile.cv_file_path.split('/').pop()}
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            Nessun CV caricato
+                          </Badge>
+                        )}
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={attachCV && !!profile?.cv_file_path}
+                          disabled={!profile?.cv_file_path}
+                          onChange={(e) => setAttachCV(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-background after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                      </label>
                     </div>
 
                     {/* Send Email Button - OAuth */}
