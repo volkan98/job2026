@@ -51,6 +51,84 @@ const SUSPICIOUS_DOMAINS = new Set([
   'temp-mail.org', 'guerrillamail.com', 'mailinator.com'
 ]);
 
+// DNS MX record validation using Deno DNS
+async function validateEmailDomain(email: string): Promise<boolean> {
+  try {
+    const domain = email.split('@')[1];
+    if (!domain) return false;
+    
+    // Use Google DNS-over-HTTPS to check MX records
+    const response = await fetch(`https://dns.google/resolve?name=${domain}&type=MX`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    
+    if (!response.ok) return false;
+    
+    const data = await response.json();
+    // Status 0 = NOERROR, check if MX records exist
+    if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
+      return true;
+    }
+    
+    // Fallback: check if domain has A record (some domains accept email without MX)
+    const aResponse = await fetch(`https://dns.google/resolve?name=${domain}&type=A`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (aResponse.ok) {
+      const aData = await aResponse.json();
+      return aData.Status === 0 && aData.Answer && aData.Answer.length > 0;
+    }
+    
+    return false;
+  } catch (error) {
+    console.log(`DNS validation failed for ${email}:`, error);
+    return false; // If we can't validate, reject it
+  }
+}
+
+// Batch validate emails - returns set of valid emails
+async function batchValidateEmails(companies: CompanyResult[]): Promise<Map<string, boolean>> {
+  const results = new Map<string, boolean>();
+  const domainsToCheck = new Map<string, string[]>(); // domain -> emails
+  
+  for (const c of companies) {
+    if (!c.email) continue;
+    const domain = c.email.split('@')[1];
+    if (!domain) continue;
+    
+    if (!domainsToCheck.has(domain)) {
+      domainsToCheck.set(domain, []);
+    }
+    domainsToCheck.get(domain)!.push(c.email);
+  }
+  
+  // Validate domains in parallel (max 10 concurrent)
+  const domains = Array.from(domainsToCheck.keys());
+  const batchSize = 10;
+  
+  for (let i = 0; i < domains.length; i += batchSize) {
+    const batch = domains.slice(i, i + batchSize);
+    const validations = await Promise.all(
+      batch.map(async (domain) => {
+        const isValid = await validateEmailDomain(`test@${domain}`);
+        return { domain, isValid };
+      })
+    );
+    
+    for (const { domain, isValid } of validations) {
+      const emails = domainsToCheck.get(domain) || [];
+      for (const email of emails) {
+        results.set(email, isValid);
+      }
+      if (!isValid) {
+        console.log(`❌ Domain ${domain} has no MX/A records - rejecting emails`);
+      }
+    }
+  }
+  
+  return results;
+}
+
 function cleanCompany(c: any): CompanyResult | null {
   if (!c || !c.name) return null;
 
@@ -75,6 +153,12 @@ function cleanCompany(c: any): CompanyResult | null {
     if (GENERIC_PREFIXES.has(prefix) || (domain && SUSPICIOUS_DOMAINS.has(domain))) {
       email = null; emailVerified = null; emailSource = null;
     }
+  }
+  
+  // CRITICAL: Reject emails without a verifiable source URL
+  if (email && (!emailSource || emailSource === 'null' || emailSource === 'n/a' || emailSource.trim() === '')) {
+    console.log(`Rejected email without source: ${email} for ${c.name}`);
+    email = null; emailVerified = null; emailSource = null;
   }
 
   if (email && !emailVerified) emailVerified = 'unverified';
