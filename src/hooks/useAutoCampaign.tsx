@@ -209,20 +209,18 @@ export function useAutoCampaign() {
     setQueueItems([]);
   };
 
-  // Auto-poll for updates when campaign is running
+  // Auto-poll only for UI refresh.
+  // Backend scheduling already processes campaigns in background,
+  // so we avoid re-triggering the processor from the browser and creating overlaps.
   useEffect(() => {
     if (!campaign?.id || !['running', 'paused'].includes(campaign.status)) return;
 
     const interval = setInterval(() => {
       fetchCampaign();
-      // Also trigger processor periodically from frontend as backup
-      if (campaign.status === 'running') {
-        triggerProcessor(campaign.id);
-      }
-    }, 30000); // Every 30 seconds
+    }, 30000);
 
     return () => clearInterval(interval);
-  }, [campaign?.id, campaign?.status]);
+  }, [campaign?.id, campaign?.status, fetchCampaign]);
 
   return {
     campaign,
