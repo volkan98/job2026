@@ -516,7 +516,31 @@ export function CompanySearch() {
       {/* Results */}
       {hasSearched && (
         <>
-      <Alert className="bg-amber-500/10 border-amber-500/30">
+          {/* Search Stats */}
+          {searchStats && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <p className="text-sm font-medium text-foreground">
+                      Ricerca multi-pass completata: {searchStats.totalPasses} passaggi, {searchStats.totalAiCalls} query AI
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {searchStats.companiesPerPass.map((pass: any, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {pass.pass}: +{pass.new} nuove
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{searchStats.stoppedReason}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Alert className="bg-amber-500/10 border-amber-500/30">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-sm">
               <strong>Fonti gratuite:</strong> I risultati sono basati su directory pubbliche (local.ch, Pagine Gialle, siti aziendali). 
