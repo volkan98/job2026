@@ -83,9 +83,16 @@ export function CompanySearch() {
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [showOnlyWithEmail, setShowOnlyWithEmail] = useState(false);
   const [onlySelectedCity, setOnlySelectedCity] = useState(false);
-  const [aziende, setAziende] = useState<Azienda[]>([]);
+  const [aziende, setAziendeState] = useState<Azienda[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('search_results');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [isSearching, setIsSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(() => {
+    return !!sessionStorage.getItem('search_results');
+  });
   const [originCity, setOriginCity] = useState(cvData?.citta || '');
   const [searchStats, setSearchStats] = useState<{
     totalPasses: number;
