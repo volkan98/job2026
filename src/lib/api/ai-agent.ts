@@ -38,14 +38,22 @@ export interface Company {
   website?: string;
   email?: string | null;
   email_verified?: 'verified_official' | 'verified_directory' | 'directory_only' | 'unverified' | null;
-  email_source?: string | null; // URL esatto dove è stata trovata l'email
+  email_source?: string | null;
   phone?: string | null;
   contact_type?: string;
   source?: string;
   match_score?: number;
   match_reasons?: string[];
-  distance_km?: number; // Distanza dalla città di residenza
-  travel_time?: string; // Tempo di percorrenza stimato (es. "25 min", "1h 15min")
+  distance_km?: number;
+  travel_time?: string;
+  domain_valid?: boolean | null;
+  email_explicit?: boolean;
+  email_source_type?: 'page_text' | 'mailto' | 'verified_directory' | 'unknown' | null;
+  smtp_status?: 'valid_email' | 'invalid_email' | 'unverifiable_email' | 'catch_all_domain' | null;
+  catch_all?: boolean | null;
+  confidence_score?: number;
+  final_status?: 'ready_to_send' | 'risky_send' | 'discarded';
+  contact_form_url?: string | null;
 }
 
 export interface EmailTemplate {

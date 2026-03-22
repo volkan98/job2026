@@ -42,12 +42,20 @@ export interface Azienda {
   sito: string;
   email: string | null;
   emailVerified?: 'verified_official' | 'verified_directory' | 'directory_only' | 'unverified' | null;
-  emailSource?: string | null; // URL esatto dove è stata trovata l'email
+  emailSource?: string | null;
   telefono: string;
   settore: string;
   fonte: string;
   distanza: number;
-  tempoPercorrenza?: string; // Tempo stimato in auto (es. "25 min", "1h 15min")
+  tempoPercorrenza?: string;
+  domainValid?: boolean | null;
+  emailExplicit?: boolean;
+  emailSourceType?: 'page_text' | 'mailto' | 'verified_directory' | 'unknown' | null;
+  smtpStatus?: 'valid_email' | 'invalid_email' | 'unverifiable_email' | 'catch_all_domain' | null;
+  catchAll?: boolean | null;
+  confidenceScore?: number;
+  finalStatus?: 'ready_to_send' | 'risky_send' | 'discarded';
+  contactFormUrl?: string | null;
 }
 
 export interface EmailTemplate {
