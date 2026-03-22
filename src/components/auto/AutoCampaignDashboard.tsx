@@ -210,8 +210,16 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function CampaignDashboard() {
-  const { campaign, events, queueItems, pauseCampaign, resumeCampaign, stopCampaign, resetCampaign, triggerProcessor } = useAutoCampaign();
+function CampaignDashboard({
+  campaign,
+  events,
+  queueItems,
+  pauseCampaign,
+  resumeCampaign,
+  stopCampaign,
+  resetCampaign,
+  triggerProcessor,
+}: Pick<ReturnType<typeof useAutoCampaign>, 'campaign' | 'events' | 'queueItems' | 'pauseCampaign' | 'resumeCampaign' | 'stopCampaign' | 'resetCampaign' | 'triggerProcessor'>) {
   const [cooldownRemaining, setCooldownRemaining] = useState('');
 
   useEffect(() => {
@@ -495,7 +503,8 @@ function QueueStatusBadge({ status }: { status: string }) {
 export function AutoCampaignDashboard() {
   const { setCurrentStep } = useCVContext();
   const { profile } = useUserProfile();
-  const { campaign, isLoading, startCampaign } = useAutoCampaign();
+  const autoCampaign = useAutoCampaign();
+  const { campaign, isLoading, startCampaign } = autoCampaign;
 
   if (isLoading) {
     return (
@@ -514,9 +523,8 @@ export function AutoCampaignDashboard() {
     );
   }
 
-  // Show dashboard if there's an active/recent campaign
   if (campaign && ['running', 'paused', 'completed', 'stopped'].includes(campaign.status)) {
-    return <CampaignDashboard />;
+    return <CampaignDashboard {...autoCampaign} />;
   }
 
   return <CampaignSetup onStart={startCampaign} />;
