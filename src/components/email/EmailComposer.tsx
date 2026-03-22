@@ -321,11 +321,15 @@ export function EmailComposer() {
     try {
       const fullBody = `${currentEmail.corpo}\n\n${currentEmail.firma}`;
       
+      // Get CV file path for attachment
+      const cvAttachmentPath = attachCV ? profile?.cv_file_path : undefined;
+      
       const result = await sendOAuthEmail(
         activeProvider,
         selectedAzienda.email,
         currentEmail.oggetto,
-        fullBody
+        fullBody,
+        cvAttachmentPath || undefined
       );
 
       if (!result.success) {
