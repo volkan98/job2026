@@ -187,12 +187,12 @@ async function processCampaign(sb: any, campaign: any) {
     return;
   }
 
-  if (hourlySent >= BURST_LIMIT) {
-    const resumeAt = new Date(Date.now() + COOLDOWN_MINUTES * 60 * 1000).toISOString();
-    await sb.from('auto_campaigns').update({ status: 'paused', pause_reason: 'Pausa anti-spam preventiva', resume_at: resumeAt, updated_at: new Date().toISOString() }).eq('id', campaignId);
-    await logEvent(sb, campaignId, userId, 'paused_rate_limit', `Pausa preventiva dopo ${BURST_LIMIT} invii consecutivi`);
-    return;
-  }
+  // Internal function headers for calling other edge functions
+  const fnHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'apikey': SUPABASE_ANON_KEY,
+  };
 
   // Get user's Gmail token
   const { data: tokenData } = await sb.from('email_oauth_tokens').select('*').eq('user_id', userId).eq('provider', 'gmail').single();
