@@ -493,22 +493,23 @@ function QueueStatusBadge({ status }: { status: string }) {
 }
 
 export function AutoCampaignDashboard() {
-  const { cvData, setCurrentStep } = useCVContext();
+  const { setCurrentStep } = useCVContext();
+  const { profile } = useUserProfile();
   const { campaign, isLoading, startCampaign } = useAutoCampaign();
-
-  if (!cvData) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Carica prima il tuo CV per usare Auto Mode.</p>
-        <Button onClick={() => setCurrentStep(0)} className="mt-4">Carica CV</Button>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!profile?.cv_file_path && !profile?.cv_short_summary) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Carica prima il tuo CV per usare Auto Mode.</p>
+        <Button onClick={() => setCurrentStep(0)} className="mt-4">Carica CV</Button>
       </div>
     );
   }
