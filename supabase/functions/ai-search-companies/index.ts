@@ -651,6 +651,48 @@ Calcola distanza e tempo da ${originCity}.`;
     // Convert map to sorted array
     let companies = Array.from(allCompanies.values());
 
+    // ═══════════════════════════════════════════════
+    // DNS MX VALIDATION: Verify email domains actually exist
+    // ═══════════════════════════════════════════════
+    console.log('--- DNS MX Validation ---');
+    const companiesWithEmail = companies.filter(c => c.email);
+    let invalidatedCount = 0;
+
+    if (companiesWithEmail.length > 0) {
+      const validationResults = await batchValidateEmails(companiesWithEmail);
+      
+      companies = companies.map(c => {
+        if (!c.email) return c;
+        
+        const isValid = validationResults.get(c.email);
+        if (isValid === false) {
+          console.log(`🚫 DNS validation failed for ${c.email} (${c.name}) - removing email`);
+          invalidatedCount++;
+          return {
+            ...c,
+            email: null,
+            email_verified: null,
+            email_source: null,
+            contact_type: 'phone_only',
+          };
+        }
+        
+        // If DNS is valid, upgrade unverified to at least dns_verified
+        if (isValid === true && c.email_verified === 'unverified') {
+          return { ...c, email_verified: 'directory_only' };
+        }
+        
+        return c;
+      });
+      
+      console.log(`DNS validation: ${invalidatedCount} emails invalidated out of ${companiesWithEmail.length}`);
+      searchStats.companiesPerPass.push({ 
+        pass: `Validazione DNS`, 
+        found: companiesWithEmail.length, 
+        new: -invalidatedCount 
+      });
+    }
+
     // Sort: email first, then by verification, then by distance
     const verificationPriority: Record<string, number> = {
       'verified_official': 1,
@@ -677,6 +719,7 @@ Calcola distanza e tempo da ${originCity}.`;
       total: companies.length,
       withEmail: companies.filter(c => c.email).length,
       verified: companies.filter(c => ['verified_official', 'verified_directory'].includes(c.email_verified || '')).length,
+      dnsInvalidated: invalidatedCount,
     };
 
     console.log(`=== SEARCH COMPLETE === Total: ${companies.length}, With email: ${emailStats.withEmail}, Passes: ${searchStats.totalPasses}, AI calls: ${searchStats.totalAiCalls}`);
