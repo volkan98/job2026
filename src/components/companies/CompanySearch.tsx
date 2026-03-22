@@ -558,7 +558,11 @@ export function CompanySearch() {
             <div className="flex items-center gap-2">
               <Filter className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {filteredAziende.length} aziende trovate • {aziendeSelezionate.length} selezionate
+                {filteredAziende.length} aziende visibili
+                {filteredAziende.length < aziende.length && (
+                  <span className="text-xs ml-1">(su {aziende.length} totali — {aziende.length - filteredAziende.length} nascoste da filtri/duplicati)</span>
+                )}
+                {' '}• {aziendeSelezionate.length} selezionate
               </span>
             </div>
             <div className="flex gap-2">
