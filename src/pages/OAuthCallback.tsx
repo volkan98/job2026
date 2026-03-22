@@ -45,8 +45,10 @@ export default function OAuthCallback() {
         setMessage(err.message || 'Impossibile completare la connessione');
       } finally {
         sessionStorage.removeItem('oauth_provider');
+        const savedStep = sessionStorage.getItem('oauth_return_step');
+        sessionStorage.removeItem('oauth_return_step');
         setTimeout(() => {
-          window.location.href = '/';
+          window.location.href = savedStep ? `/?step=${savedStep}` : '/';
         }, 2000);
       }
     };

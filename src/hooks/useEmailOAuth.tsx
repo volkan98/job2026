@@ -107,8 +107,9 @@ export function useEmailOAuth() {
       if (error) throw error;
 
       if (data?.success && data.authUrl) {
-        // Store provider for callback
+        // Store provider and current step for callback
         sessionStorage.setItem('oauth_provider', provider);
+        sessionStorage.setItem('oauth_return_step', '3');
         // Redirect to OAuth
         window.location.href = data.authUrl;
       } else {

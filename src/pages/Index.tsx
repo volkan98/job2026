@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCVContext } from '@/contexts/CVContext';
 import { useAuth } from '@/hooks/useAuth';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -31,13 +31,27 @@ function MainContent() {
 
 const Index = () => {
   const { user, loading } = useAuth();
+  const { setCurrentStep } = useCVContext();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
+
+  // Restore step from URL param (e.g. after OAuth callback)
+  useEffect(() => {
+    const stepParam = searchParams.get('step');
+    if (stepParam) {
+      const step = parseInt(stepParam, 10);
+      if (!isNaN(step) && step >= 0 && step <= 4) {
+        setCurrentStep(step);
+      }
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setCurrentStep, setSearchParams]);
 
   if (loading) {
     return (
