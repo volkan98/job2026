@@ -68,6 +68,7 @@ export function EmailComposer() {
   const [selectedAziendaId, setSelectedAziendaId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [attachCV, setAttachCV] = useState(true);
   const [duplicateWarning, setDuplicateWarning] = useState<{
     isDuplicate: boolean;
     type?: string;
