@@ -210,8 +210,16 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function CampaignDashboard() {
-  const { campaign, events, queueItems, pauseCampaign, resumeCampaign, stopCampaign, resetCampaign, triggerProcessor } = useAutoCampaign();
+function CampaignDashboard({
+  campaign,
+  events,
+  queueItems,
+  pauseCampaign,
+  resumeCampaign,
+  stopCampaign,
+  resetCampaign,
+  triggerProcessor,
+}: Pick<ReturnType<typeof useAutoCampaign>, 'campaign' | 'events' | 'queueItems' | 'pauseCampaign' | 'resumeCampaign' | 'stopCampaign' | 'resetCampaign' | 'triggerProcessor'>) {
   const [cooldownRemaining, setCooldownRemaining] = useState('');
 
   useEffect(() => {
