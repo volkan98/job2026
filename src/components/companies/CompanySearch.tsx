@@ -563,7 +563,7 @@ export function CompanySearch() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={selectAll}>
-                Seleziona tutte con email
+                Seleziona tutte pronte
               </Button>
               <Button variant="outline" size="sm" onClick={exportCSV}>
                 <Download className="h-4 w-4 mr-2" />
