@@ -30,9 +30,16 @@ interface CompanyResult {
   match_reasons?: string[];
   distance_km?: number;
   travel_time?: string;
+  domain_valid?: boolean | null;
+  email_explicit?: boolean;
+  email_source_type?: 'page_text' | 'mailto' | 'verified_directory' | 'unknown' | null;
+  smtp_status?: 'valid_email' | 'invalid_email' | 'unverifiable_email' | 'catch_all_domain' | null;
+  catch_all?: boolean | null;
+  confidence_score?: number;
+  final_status?: 'ready_to_send' | 'risky_send' | 'discarded';
+  contact_form_url?: string | null;
 }
 
-// Generic email prefixes to reject
 const GENERIC_PREFIXES = new Set([
   'info', 'contact', 'contatti', 'contatto', 'amministrazione', 'admin',
   'support', 'supporto', 'noreply', 'no-reply', 'segreteria', 'reception',
@@ -51,82 +58,144 @@ const SUSPICIOUS_DOMAINS = new Set([
   'temp-mail.org', 'guerrillamail.com', 'mailinator.com'
 ]);
 
-// DNS MX record validation using Deno DNS
+async function resolveDnsRecord(domain: string, type: 'MX' | 'A') {
+  const response = await fetch(`https://dns.google/resolve?name=${domain}&type=${type}`, {
+    signal: AbortSignal.timeout(3000),
+  });
+  if (!response.ok) return null;
+  return response.json();
+}
+
 async function validateEmailDomain(email: string): Promise<boolean> {
   try {
     const domain = email.split('@')[1];
     if (!domain) return false;
-    
-    // Use Google DNS-over-HTTPS to check MX records
-    const response = await fetch(`https://dns.google/resolve?name=${domain}&type=MX`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    
-    if (!response.ok) return false;
-    
-    const data = await response.json();
-    // Status 0 = NOERROR, check if MX records exist
-    if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
+
+    const mxData = await resolveDnsRecord(domain, 'MX');
+    if (mxData?.Status === 0 && mxData?.Answer?.length > 0) {
       return true;
     }
-    
-    // Fallback: check if domain has A record (some domains accept email without MX)
-    const aResponse = await fetch(`https://dns.google/resolve?name=${domain}&type=A`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (aResponse.ok) {
-      const aData = await aResponse.json();
-      return aData.Status === 0 && aData.Answer && aData.Answer.length > 0;
-    }
-    
-    return false;
+
+    const aData = await resolveDnsRecord(domain, 'A');
+    return !!(aData?.Status === 0 && aData?.Answer?.length > 0);
   } catch (error) {
     console.log(`DNS validation failed for ${email}:`, error);
-    return false; // If we can't validate, reject it
+    return false;
   }
 }
 
-// Batch validate emails - returns set of valid emails
-async function batchValidateEmails(companies: CompanyResult[]): Promise<Map<string, boolean>> {
-  const results = new Map<string, boolean>();
-  const domainsToCheck = new Map<string, string[]>(); // domain -> emails
-  
-  for (const c of companies) {
-    if (!c.email) continue;
-    const domain = c.email.split('@')[1];
-    if (!domain) continue;
-    
-    if (!domainsToCheck.has(domain)) {
-      domainsToCheck.set(domain, []);
-    }
-    domainsToCheck.get(domain)!.push(c.email);
+async function classifyRecipientEmail(email: string): Promise<{
+  smtp_status: 'valid_email' | 'invalid_email' | 'unverifiable_email' | 'catch_all_domain';
+  catch_all: boolean;
+}> {
+  const domain = email.split('@')[1];
+  const localPart = email.split('@')[0];
+
+  if (!domain || !localPart) {
+    return { smtp_status: 'invalid_email', catch_all: false };
   }
-  
-  // Validate domains in parallel (max 10 concurrent)
-  const domains = Array.from(domainsToCheck.keys());
-  const batchSize = 10;
-  
-  for (let i = 0; i < domains.length; i += batchSize) {
-    const batch = domains.slice(i, i + batchSize);
-    const validations = await Promise.all(
-      batch.map(async (domain) => {
-        const isValid = await validateEmailDomain(`test@${domain}`);
-        return { domain, isValid };
-      })
-    );
-    
-    for (const { domain, isValid } of validations) {
-      const emails = domainsToCheck.get(domain) || [];
-      for (const email of emails) {
-        results.set(email, isValid);
-      }
-      if (!isValid) {
-        console.log(`❌ Domain ${domain} has no MX/A records - rejecting emails`);
-      }
+
+  try {
+    const hasValidDomain = await validateEmailDomain(email);
+    if (!hasValidDomain) {
+      return { smtp_status: 'invalid_email', catch_all: false };
+    }
+
+    if (GENERIC_PREFIXES.has(localPart)) {
+      return { smtp_status: 'invalid_email', catch_all: false };
+    }
+
+    // Best-effort classification only: true SMTP recipient validation is often blocked by providers.
+    // We classify known risky patterns conservatively to minimize bounce risk.
+    if (localPart.length < 2 || /^[0-9]+$/.test(localPart)) {
+      return { smtp_status: 'unverifiable_email', catch_all: false };
+    }
+
+    // Heuristic catch-all / role-based risky mailbox detection.
+    const riskyRoleMailbox = [
+      'team', 'jobs', 'career', 'careers', 'recruiting', 'hr', 'personnel'
+    ].includes(localPart);
+
+    if (riskyRoleMailbox) {
+      return { smtp_status: 'catch_all_domain', catch_all: true };
+    }
+
+    return { smtp_status: 'unverifiable_email', catch_all: false };
+  } catch (error) {
+    console.log(`Recipient classification failed for ${email}:`, error);
+    return { smtp_status: 'unverifiable_email', catch_all: false };
+  }
+}
+
+async function batchValidateEmails(companies: CompanyResult[]): Promise<Map<string, {
+  domain_valid: boolean;
+  smtp_status: 'valid_email' | 'invalid_email' | 'unverifiable_email' | 'catch_all_domain';
+  catch_all: boolean;
+}>> {
+  const results = new Map<string, {
+    domain_valid: boolean;
+    smtp_status: 'valid_email' | 'invalid_email' | 'unverifiable_email' | 'catch_all_domain';
+    catch_all: boolean;
+  }>();
+
+  const emails = [...new Set(companies.map(c => c.email).filter(Boolean) as string[])];
+  const batchSize = 8;
+
+  for (let i = 0; i < emails.length; i += batchSize) {
+    const batch = emails.slice(i, i + batchSize);
+    const validations = await Promise.all(batch.map(async (email) => {
+      const domain_valid = await validateEmailDomain(email);
+      const recipient = domain_valid
+        ? await classifyRecipientEmail(email)
+        : { smtp_status: 'invalid_email' as const, catch_all: false };
+
+      return {
+        email,
+        domain_valid,
+        smtp_status: recipient.smtp_status,
+        catch_all: recipient.catch_all,
+      };
+    }));
+
+    for (const result of validations) {
+      results.set(result.email, result);
     }
   }
-  
+
   return results;
+}
+
+function detectSourceType(source: string | null): 'page_text' | 'mailto' | 'verified_directory' | 'unknown' | null {
+  if (!source) return null;
+  const lower = source.toLowerCase();
+  if (lower.includes('mailto:')) return 'mailto';
+  if (lower.includes('local.ch') || lower.includes('search.ch') || lower.includes('yellow.ch') || lower.includes('paginegialle')) {
+    return 'verified_directory';
+  }
+  if (lower.startsWith('http')) return 'page_text';
+  return 'unknown';
+}
+
+function computeConfidence(company: CompanyResult): number {
+  if (!company.email) return 0;
+  if (company.smtp_status === 'invalid_email') return 0;
+  if (company.email_source_type === 'page_text' && company.smtp_status === 'valid_email') return 100;
+  if (company.email_source_type === 'mailto' && company.smtp_status === 'valid_email') return 95;
+  if (company.email_source_type === 'page_text' && company.smtp_status === 'unverifiable_email') return 80;
+  if (company.email_source_type === 'mailto' && company.smtp_status === 'unverifiable_email') return 75;
+  if (company.email_source_type === 'verified_directory') return 60;
+  if (company.smtp_status === 'catch_all_domain') return 50;
+  return 40;
+}
+
+function determineFinalStatus(company: CompanyResult): 'ready_to_send' | 'risky_send' | 'discarded' {
+  if (!company.email || company.smtp_status === 'invalid_email' || company.confidence_score === 0) {
+    return 'discarded';
+  }
+  if (company.smtp_status === 'valid_email' && company.confidence_score >= 95) {
+    return 'ready_to_send';
+  }
+  return 'risky_send';
 }
 
 function cleanCompany(c: any): CompanyResult | null {
@@ -135,6 +204,7 @@ function cleanCompany(c: any): CompanyResult | null {
   let email = c.email;
   let emailVerified = c.email_verified || null;
   let emailSource = c.email_source || null;
+  const emailSourceType = detectSourceType(emailSource);
 
   if (email) {
     email = email.trim().toLowerCase();
@@ -154,10 +224,16 @@ function cleanCompany(c: any): CompanyResult | null {
       email = null; emailVerified = null; emailSource = null;
     }
   }
-  
-  // CRITICAL: Reject emails without a verifiable source URL
+
   if (email && (!emailSource || emailSource === 'null' || emailSource === 'n/a' || emailSource.trim() === '')) {
     console.log(`Rejected email without source: ${email} for ${c.name}`);
+    email = null; emailVerified = null; emailSource = null;
+  }
+
+  // Accept only explicit sources.
+  const emailExplicit = !!email && !!emailSource && ['page_text', 'mailto', 'verified_directory'].includes(emailSourceType || '');
+  if (email && !emailExplicit) {
+    console.log(`Rejected non-explicit email source: ${email} for ${c.name}`);
     email = null; emailVerified = null; emailSource = null;
   }
 
@@ -173,12 +249,20 @@ function cleanCompany(c: any): CompanyResult | null {
     email_verified: email ? emailVerified : null,
     email_source: email ? (emailSource && emailSource !== 'null' && emailSource !== 'n/a' ? emailSource : null) : null,
     phone: c.phone || null,
-    contact_type: c.contact_type || 'generic',
+    contact_type: c.contact_type || (c.contact_form_url ? 'form_only' : 'generic'),
     source: c.source || 'AI Search',
     match_score: c.match_score || 0,
     match_reasons: c.match_reasons || [],
     distance_km: c.distance_km || 0,
     travel_time: c.travel_time || '',
+    domain_valid: null,
+    email_explicit: email ? emailExplicit : false,
+    email_source_type: email ? emailSourceType : null,
+    smtp_status: null,
+    catch_all: null,
+    confidence_score: email ? 40 : 0,
+    final_status: email ? 'risky_send' : 'discarded',
+    contact_form_url: c.contact_form_url || null,
   };
 }
 
