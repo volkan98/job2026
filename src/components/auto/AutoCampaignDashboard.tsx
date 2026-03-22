@@ -503,7 +503,8 @@ function QueueStatusBadge({ status }: { status: string }) {
 export function AutoCampaignDashboard() {
   const { setCurrentStep } = useCVContext();
   const { profile } = useUserProfile();
-  const { campaign, isLoading, startCampaign } = useAutoCampaign();
+  const autoCampaign = useAutoCampaign();
+  const { campaign, isLoading, startCampaign } = autoCampaign;
 
   if (isLoading) {
     return (
@@ -522,9 +523,8 @@ export function AutoCampaignDashboard() {
     );
   }
 
-  // Show dashboard if there's an active/recent campaign
   if (campaign && ['running', 'paused', 'completed', 'stopped'].includes(campaign.status)) {
-    return <CampaignDashboard />;
+    return <CampaignDashboard {...autoCampaign} />;
   }
 
   return <CampaignSetup onStart={startCampaign} />;
