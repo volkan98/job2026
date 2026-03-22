@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ManualCompanySearch } from './ManualCompanySearch';
 import { useCVContext } from '@/contexts/CVContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAutoCampaign, CampaignSetupData } from '@/hooks/useAutoCampaign';
@@ -249,7 +250,7 @@ function CampaignDashboard({
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl md:text-3xl font-bold text-foreground flex items-center justify-center gap-2">
           <Zap className="h-7 w-7 text-primary" />
@@ -363,8 +364,8 @@ function CampaignDashboard({
         </Card>
       </div>
 
-      {/* Two columns: Queue + Live Console */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Three columns: Queue | Manual Search | Live Console */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Queue Status */}
         <Card>
           <CardHeader className="pb-3">
@@ -374,7 +375,7 @@ function CampaignDashboard({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[300px]">
+            <ScrollArea className="h-[350px]">
               <div className="space-y-1 p-4">
                 {queueItems.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">Coda vuota — ricerca in corso</p>
@@ -392,6 +393,9 @@ function CampaignDashboard({
             </ScrollArea>
           </CardContent>
         </Card>
+
+        {/* Manual Search */}
+        {campaign && <ManualCompanySearch campaignId={campaign.id} />}
 
         {/* Live Console */}
         <LiveConsole events={events} />
