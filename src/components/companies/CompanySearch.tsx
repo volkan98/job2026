@@ -240,6 +240,11 @@ export function CompanySearch() {
         setOriginCity(result.originCity);
       }
 
+      // Salva le statistiche di ricerca
+      if (result.searchStats) {
+        setSearchStats(result.searchStats);
+      }
+
       const mappedAziende: Azienda[] = result.data.map((company: Company, index: number) => {
         // Normalizza l'email: gestisce null, undefined, stringa vuota e stringa "null"
         const normalizedEmail = company.email && 
@@ -279,9 +284,13 @@ export function CompanySearch() {
       setAziende(mappedAziende);
       setHasSearched(true);
       
+      const statsInfo = result.searchStats 
+        ? ` (${result.searchStats.totalPasses} passaggi, ${result.searchStats.totalAiCalls} query AI)` 
+        : '';
+      
       toast({
         title: 'Ricerca completata!',
-        description: `Trovate ${mappedAziende.length} aziende nella zona, ordinate per distanza da ${userCity || 'te'}.`,
+        description: `Trovate ${mappedAziende.length} aziende${statsInfo}.`,
       });
     } catch (error: any) {
       console.error('Search error:', error);
