@@ -85,7 +85,7 @@ export const aiAgent = {
     minResults: number = 30,
     userCity?: string, // Città di residenza dell'utente
     onlySelectedCity?: boolean // Se true, cerca SOLO nella città selezionata
-  ): Promise<{ success: boolean; data?: Company[]; total?: number; originCity?: string; error?: string }> {
+  ): Promise<{ success: boolean; data?: Company[]; total?: number; originCity?: string; searchStats?: any; error?: string }> {
     try {
       const { data, error } = await supabase.functions.invoke('ai-search-companies', {
         body: { location, radius, keywords, cvSkills, targetRole, minResults, userCity, onlySelectedCity },

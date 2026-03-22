@@ -10,8 +10,247 @@ interface SearchRequest {
   cvSkills?: string[];
   targetRole?: string;
   minResults?: number;
-  userCity?: string; // Città di residenza dell'utente per calcolo distanza
-  onlySelectedCity?: boolean; // Se true, cerca SOLO nella città selezionata
+  userCity?: string;
+  onlySelectedCity?: boolean;
+}
+
+interface CompanyResult {
+  name: string;
+  sector?: string;
+  address?: string;
+  city?: string;
+  website?: string;
+  email?: string | null;
+  email_verified?: string | null;
+  email_source?: string | null;
+  phone?: string | null;
+  contact_type?: string;
+  source?: string;
+  match_score?: number;
+  match_reasons?: string[];
+  distance_km?: number;
+  travel_time?: string;
+}
+
+// Generic email prefixes to reject
+const GENERIC_PREFIXES = new Set([
+  'info', 'contact', 'contatti', 'contatto', 'amministrazione', 'admin',
+  'support', 'supporto', 'noreply', 'no-reply', 'segreteria', 'reception',
+  'ufficio', 'vendite', 'sales', 'marketing', 'webmaster', 'postmaster',
+  'office', 'hello', 'help', 'service', 'general', 'mail', 'email',
+  'direzione', 'comunicazione', 'press', 'stampa', 'billing', 'invoice',
+  'fatturazione', 'acquisti', 'procurement', 'ordini', 'orders',
+  'feedback', 'newsletter', 'subscribe', 'unsubscribe', 'abuse',
+  'privacy', 'legal', 'compliance', 'accounting', 'contabilita',
+  'commerciale', 'tecnico', 'assistenza', 'prenotazioni', 'booking',
+  'reservation', 'shop', 'store', 'ecommerce'
+]);
+
+const SUSPICIOUS_DOMAINS = new Set([
+  'example.com', 'test.com', 'localhost', 'email.com', 'mail.com',
+  'temp-mail.org', 'guerrillamail.com', 'mailinator.com'
+]);
+
+function cleanCompany(c: any): CompanyResult | null {
+  if (!c || !c.name) return null;
+
+  let email = c.email;
+  let emailVerified = c.email_verified || null;
+  let emailSource = c.email_source || null;
+
+  if (email) {
+    email = email.trim().toLowerCase();
+    if (['null', 'n/a', 'undefined', 'none', '-', '', 'na', 'n.a.', 'nessuna'].includes(email)) {
+      email = null; emailVerified = null; emailSource = null;
+    }
+  }
+
+  if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+    email = null; emailVerified = null; emailSource = null;
+  }
+
+  if (email) {
+    const prefix = email.split('@')[0];
+    const domain = email.split('@')[1];
+    if (GENERIC_PREFIXES.has(prefix) || (domain && SUSPICIOUS_DOMAINS.has(domain))) {
+      email = null; emailVerified = null; emailSource = null;
+    }
+  }
+
+  if (email && !emailVerified) emailVerified = 'unverified';
+
+  return {
+    name: c.name,
+    sector: c.sector || '',
+    address: c.address || '',
+    city: c.city || '',
+    website: c.website || '',
+    email: email || null,
+    email_verified: email ? emailVerified : null,
+    email_source: email ? (emailSource && emailSource !== 'null' && emailSource !== 'n/a' ? emailSource : null) : null,
+    phone: c.phone || null,
+    contact_type: c.contact_type || 'generic',
+    source: c.source || 'AI Search',
+    match_score: c.match_score || 0,
+    match_reasons: c.match_reasons || [],
+    distance_km: c.distance_km || 0,
+    travel_time: c.travel_time || '',
+  };
+}
+
+function parseCompaniesJSON(content: string): any[] {
+  let jsonStr = content.trim();
+  if (jsonStr.startsWith('```')) {
+    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+  }
+
+  try {
+    const parsed = JSON.parse(jsonStr);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    // Recovery: find last complete object
+    let lastValidIndex = jsonStr.lastIndexOf('}');
+    while (lastValidIndex > 0) {
+      try {
+        const result = JSON.parse(jsonStr.substring(0, lastValidIndex + 1) + ']');
+        return Array.isArray(result) ? result : [];
+      } catch {
+        lastValidIndex = jsonStr.lastIndexOf('}', lastValidIndex - 1);
+      }
+    }
+    return [];
+  }
+}
+
+function normalizeCompanyName(name: string): string {
+  return name.toLowerCase().trim()
+    .replace(/\s*(sa|sagl|srl|spa|snc|sas|ag|gmbh|ltd|s\.a\.|s\.r\.l\.)\s*$/i, '')
+    .replace(/[^a-z0-9àèéìòù]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function aiSearch(
+  aiGatewayUrl: string,
+  aiGatewayToken: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 32000
+): Promise<any[]> {
+  try {
+    const response = await fetch(aiGatewayUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${aiGatewayToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.8,
+        max_tokens: maxTokens,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI Gateway error:', response.status, errorText);
+      return [];
+    }
+
+    const aiResponse = await response.json();
+    const content = aiResponse.choices?.[0]?.message?.content;
+    if (!content) return [];
+
+    return parseCompaniesJSON(content);
+  } catch (error) {
+    console.error('AI search call failed:', error);
+    return [];
+  }
+}
+
+// Query expansion: generate related keywords
+function expandKeywords(keywords: string[]): string[][] {
+  const expansions: Record<string, string[][]> = {
+    'produzione': [
+      ['manifattura', 'manufacturing', 'fabbrica', 'stabilimento', 'impianto produttivo'],
+      ['assemblaggio', 'lavorazione', 'trasformazione', 'confezionamento'],
+    ],
+    'metalmeccanica': [
+      ['meccanica di precisione', 'torneria', 'fresatura', 'carpenteria metallica'],
+      ['lavorazione metalli', 'saldatura', 'stampaggio', 'fonderia'],
+    ],
+    'packaging': [
+      ['imballaggio', 'confezionamento', 'etichettatura', 'packaging industriale'],
+      ['cartotecnica', 'plastica', 'materiali da imballaggio'],
+    ],
+    'farmaceutico': [
+      ['pharma', 'biotech', 'medicale', 'dispositivi medici', 'cosmetico'],
+      ['laboratorio', 'chimica fine', 'life science', 'healthcare'],
+    ],
+    'logistica': [
+      ['trasporti', 'spedizioni', 'magazzino', 'supply chain', 'distribuzione'],
+      ['corriere', 'import export', 'dogana', 'freight forwarding'],
+    ],
+    'verniciatura': [
+      ['carrozzeria', 'verniciatura industriale', 'trattamento superfici'],
+      ['sabbiatura', 'galvanica', 'rivestimenti', 'powder coating'],
+    ],
+    'alimentare': [
+      ['food', 'bevande', 'panificio', 'pasticceria', 'gastronomia'],
+      ['ristorazione', 'catering', 'mensa', 'hotel', 'bar'],
+    ],
+    'agenzie': [
+      ['agenzia interinale', 'agenzia di collocamento', 'somministrazione lavoro', 'temporary staffing'],
+      ['recruitment', 'head hunting', 'selezione personale', 'risorse umane'],
+    ],
+  };
+
+  const result: string[][] = [];
+  for (const kw of keywords) {
+    const kwLower = kw.toLowerCase();
+    if (expansions[kwLower]) {
+      result.push(...expansions[kwLower]);
+    }
+  }
+  return result;
+}
+
+// Generate location variants
+function expandLocations(location: string, radius: number, onlySelectedCity: boolean): string[] {
+  if (onlySelectedCity) return [];
+
+  const ticinoCities = ['Lugano', 'Bellinzona', 'Locarno', 'Mendrisio', 'Chiasso', 'Paradiso', 'Grancia', 'Massagno', 'Viganello', 'Pregassona', 'Bioggio', 'Agno', 'Manno', 'Lamone', 'Cadempino', 'Muzzano', 'Sorengo', 'Canobbio', 'Porza', 'Savosa', 'Noranco', 'Breganzona', 'Stabio', 'Coldrerio', 'Balerna', 'Novazzano', 'Vacallo', 'Morbio Inferiore', 'Caslano', 'Magliaso', 'Rivera', 'Monte Carasso', 'Giubiasco', 'Cadenazzo', 'Sant\'Antonino', 'Arbedo-Castione'];
+  const lombardiaCities = ['Como', 'Varese', 'Milano', 'Monza', 'Lecco', 'Cantù', 'Erba', 'Mariano Comense', 'Saronno', 'Busto Arsizio', 'Gallarate'];
+
+  const locationLower = location.toLowerCase();
+  const variants: string[] = [];
+
+  // If searching in Ticino area
+  if (ticinoCities.some(c => locationLower.includes(c.toLowerCase())) || locationLower.includes('ticino') || locationLower.includes('lugano')) {
+    if (radius >= 20) {
+      variants.push('Canton Ticino, Svizzera');
+    }
+    if (radius >= 50) {
+      variants.push('Como e provincia, Italia');
+      variants.push('Varese e provincia, Italia');
+    }
+  }
+
+  // If searching in Lombardia
+  if (lombardiaCities.some(c => locationLower.includes(c.toLowerCase())) || locationLower.includes('lombardia')) {
+    if (radius >= 30) {
+      variants.push('Province di Como, Varese, Lecco, Italia');
+    }
+    if (radius >= 50) {
+      variants.push('Canton Ticino, Svizzera');
+    }
+  }
+
+  return variants;
 }
 
 Deno.serve(async (req) => {
@@ -30,8 +269,6 @@ Deno.serve(async (req) => {
     }
 
     const originCity = userCity || location;
-    console.log('AI deep searching companies in:', location, 'from:', originCity, 'keywords:', keywords, 'minResults:', minResults, 'onlySelectedCity:', onlySelectedCity);
-
     const aiGatewayUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
     const aiGatewayToken = Deno.env.get('LOVABLE_API_KEY');
 
@@ -39,384 +276,273 @@ Deno.serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    // Determine if it's a region/canton search
-    const isRegionSearch = location.toLowerCase().includes('tutta la regione') || 
-                           location.toLowerCase().includes('tutto il cantone') ||
-                           location.toLowerCase().includes('intera provincia');
+    console.log(`=== MULTI-PASS SEARCH START === Target: ${minResults}, Location: ${location}, Keywords: ${keywords.join(', ')}`);
 
-    // If onlySelectedCity is true, override region search and force single city
+    // Track all unique companies across passes
+    const allCompanies = new Map<string, CompanyResult>();
+    const searchStats = {
+      totalPasses: 0,
+      totalAiCalls: 0,
+      companiesPerPass: [] as { pass: string; found: number; new: number }[],
+      stoppedReason: '',
+    };
+
+    const addCompanies = (rawCompanies: any[], passName: string): number => {
+      let newCount = 0;
+      for (const raw of rawCompanies) {
+        const cleaned = cleanCompany(raw);
+        if (!cleaned) continue;
+        const key = normalizeCompanyName(cleaned.name);
+        // Also check by website domain
+        const websiteKey = cleaned.website ? cleaned.website.replace(/^https?:\/\/(www\.)?/, '').split('/')[0].toLowerCase() : '';
+        
+        if (!allCompanies.has(key) && (!websiteKey || !Array.from(allCompanies.values()).some(c => {
+          const existingWebsite = c.website ? c.website.replace(/^https?:\/\/(www\.)?/, '').split('/')[0].toLowerCase() : '';
+          return existingWebsite && existingWebsite === websiteKey;
+        }))) {
+          allCompanies.set(key, cleaned);
+          newCount++;
+        }
+      }
+      return newCount;
+    };
+
+    // Location context for prompts
     let locationContext = '';
     if (onlySelectedCity) {
-      locationContext = `ATTENZIONE CRITICA: L'utente ha selezionato "SOLO CITTÀ SELEZIONATA".
-⚠️ Devi cercare aziende ESCLUSIVAMENTE nella città di "${location}" - nessun'altra città!
-⚠️ NON includere aziende di città vicine, frazioni, o comuni limitrofi.
-⚠️ La città nell'output JSON deve essere ESATTAMENTE "${location}" o al massimo una via/zona di "${location}".
-⚠️ Se non trovi abbastanza aziende in questa città specifica, restituisci meno risultati ma NON espandere ad altre città.`;
-    } else if (isRegionSearch) {
-      locationContext = `IMPORTANTE: L'utente sta cercando in TUTTA LA REGIONE/CANTONE. Includi aziende da TUTTE le città e comuni della regione, non solo la città principale.`;
+      locationContext = `CERCA ESCLUSIVAMENTE nella città di "${location}" - NESSUN'altra città!`;
     } else {
-      locationContext = `Cerca aziende nella zona di ${location} e comuni limitrofi entro ${radius} km.`;
+      locationContext = `Cerca nella zona di ${location} e comuni limitrofi entro ${radius} km.`;
     }
 
-    const prompt = `Sei un agente di ricerca lavoro professionale svizzero/italiano con accesso a vaste banche dati aziendali. Il tuo compito è generare la lista PIÙ COMPLETA POSSIBILE di aziende reali CON PRIORITÀ ASSOLUTA ALLA RICERCA EMAIL VERIFICATE.
+    const baseSystemPrompt = `Sei un esperto database vivente di aziende svizzere e italiane. Il tuo compito è generare una lista di aziende REALI.
 
-PUNTO DI PARTENZA UTENTE: ${originCity}
-ZONA DI RICERCA:
-- Località: ${location}
-- Raggio: ${onlySelectedCity ? 'SOLO QUESTA CITTÀ - NESSUN RAGGIO' : `${radius} km`}
-- Modalità: ${onlySelectedCity ? '🎯 SOLO CITTÀ SELEZIONATA - RICERCA CONCENTRATA' : 'Zona estesa'}
+REGOLE EMAIL:
+- Cerca email HR/recruiting: hr@, jobs@, careers@, recruiting@, personale@, nome.cognome@
+- ESCLUDI email generiche: info@, contact@, admin@, support@, noreply@, segreteria@, vendite@, marketing@
+- Se un'azienda ha SOLO email generiche → email = null
+- NON INVENTARE email - se non la conosci, metti null
+- Indica email_verified e email_source quando possibile
 
+REGOLE AZIENDE:
+- Le keyword rappresentano il LAVORO che il candidato vuole FARE
+- Trova aziende che ASSUMONO per quel lavoro, NON negozi che vendono prodotti correlati
+- Keyword "Verniciatura" → ✅ Carrozzerie, verniciatura industriale → ❌ Colorifici, negozi vernici
+- Keyword "Agenzie" → ✅ Agenzie interinali/collocamento → ❌ Agenzie immobiliari/viaggi
+
+Rispondi SOLO con un array JSON valido (senza markdown, senza backticks).
+Formato: [{"name":"...","sector":"...","address":"...","city":"...","website":"...","email":"...o null","email_verified":"verified_official|verified_directory|directory_only|unverified|null","email_source":"URL o null","phone":"...o null","contact_type":"generic|hr|jobs","source":"...","match_score":85,"match_reasons":["..."],"distance_km":15,"travel_time":"25 min"}]`;
+
+    const targetCount = minResults;
+
+    // ═══════════════════════════════════════════════
+    // PASS 1: Main search with primary keywords
+    // ═══════════════════════════════════════════════
+    console.log('--- PASS 1: Primary search ---');
+    searchStats.totalPasses++;
+    searchStats.totalAiCalls++;
+
+    const pass1Prompt = `Cerca ALMENO ${Math.min(targetCount, 40)} aziende reali nella zona specificata.
+
+PUNTO DI PARTENZA: ${originCity}
+ZONA: ${location} (${onlySelectedCity ? 'SOLO questa città' : `raggio ${radius} km`})
 ${locationContext}
 
-SETTORI/KEYWORDS DI RICERCA:
-${keywords.map(k => `- ${k}`).join('\n')}
-
-${cvSkills?.length ? `COMPETENZE DEL CANDIDATO:\n${cvSkills.map(s => `- ${s}`).join('\n')}` : ''}
+SETTORI/KEYWORDS: ${keywords.join(', ')}
+${cvSkills?.length ? `COMPETENZE CANDIDATO: ${cvSkills.join(', ')}` : ''}
 ${targetRole ? `RUOLO TARGET: ${targetRole}` : ''}
 
-═══════════════════════════════════════════════════════════════════════════════
-PRIORITÀ ASSOLUTA N.1: RICERCA EMAIL VERIFICATA E REALE
-═══════════════════════════════════════════════════════════════════════════════
+FONTI: local.ch, search.ch, yellow.ch, Pagine Gialle, Comparis.ch, LinkedIn, siti aziendali, registri imprese, camere di commercio.
 
-Per OGNI azienda devi effettuare una RICERCA APPROFONDITA MULTI-LIVELLO dell'email:
+Includi: multinazionali locali, medie imprese, PMI, artigiani, studi professionali, cooperative, agenzie.
+Calcola distanza e tempo di percorrenza da ${originCity} per ogni azienda.
+Ordina per: 1) aziende con email HR verificata 2) con email 3) senza email. Poi per distanza.`;
 
-PASSAGGIO 1 - ANALISI SITO UFFICIALE (obbligatorio):
-- Analizza il sito web ufficiale dell'azienda
-- NON fermarti alla homepage - esplora in profondità:
-  • Pagina "Contatti" / "Contact" / "Kontakt"
-  • Pagina "Impressum" / "Privacy" / "Note Legali"
-  • Pagina "Lavora con noi" / "Careers" / "Jobs" / "Carriere" / "Stellenangebote"
-  • Footer del sito (spesso contiene email)
-  • Pagina "Chi siamo" / "About" / "Über uns"
+    const pass1Results = await aiSearch(aiGatewayUrl, aiGatewayToken, baseSystemPrompt, pass1Prompt);
+    const pass1New = addCompanies(pass1Results, 'Pass 1: Ricerca principale');
+    searchStats.companiesPerPass.push({ pass: 'Ricerca principale', found: pass1Results.length, new: pass1New });
+    console.log(`Pass 1: Found ${pass1Results.length}, New unique: ${pass1New}, Total: ${allCompanies.size}`);
 
-PASSAGGIO 2 - DIRECTORY PUBBLICHE (verifica incrociata):
-- local.ch, search.ch, yellow.ch (Svizzera)
-- Pagine Gialle, Pagine Bianche, Virgilio Aziende (Italia)
-- Comparis.ch, tutti.ch
-- Registri imprese cantonali/regionali
+    // ═══════════════════════════════════════════════
+    // PASS 2: Expanded keywords with synonyms
+    // ═══════════════════════════════════════════════
+    if (allCompanies.size < targetCount) {
+      console.log('--- PASS 2: Keyword expansion ---');
+      searchStats.totalPasses++;
 
-PASSAGGIO 3 - VERIFICA INCROCIATA (obbligatorio se email da directory):
-- Se trovi email su directory, VERIFICA che sia presente anche sul sito ufficiale
-- Preferisci email trovate DIRETTAMENTE sul sito ufficiale dell'azienda
+      const expandedGroups = expandKeywords(keywords);
+      const existingNames = Array.from(allCompanies.keys()).slice(0, 30).map(n => allCompanies.get(n)!.name);
 
-REGOLE INDEROGABILI PER EMAIL:
-❌ NON INVENTARE MAI email
-❌ NON DEDURRE email non presenti esplicitamente
-❌ NON generare email basandoti su pattern (es. "probabilmente info@dominio.ch")
-❌ NON includere email generiche inutili per candidature: info@, contact@, contatti@, amministrazione@, support@, noreply@, segreteria@, reception@, ufficio@, vendite@, sales@, marketing@, webmaster@, postmaster@
-✅ Inserisci SOLO email UTILI PER CANDIDATURE LAVORATIVE
-✅ Se non trovi email adatta a candidatura, metti NULL - è meglio null che email inutile
-✅ Salva SEMPRE la fonte esatta dell'email (URL della pagina dove l'hai trovata)
+      // Run up to 2 expansion queries in parallel
+      const expansionPromises = expandedGroups.slice(0, 2).map(async (expandedKws, i) => {
+        searchStats.totalAiCalls++;
+        const needed = Math.ceil((targetCount - allCompanies.size) / Math.min(expandedGroups.length, 2));
 
-⚠️ REGOLA CRITICA - FILTRAGGIO EMAIL PER CANDIDATURA:
-L'obiettivo è trovare email dove inviare un CV con alta probabilità di essere LETTO da chi si occupa di selezione.
+        const prompt = `Cerca ALMENO ${Math.max(needed, 15)} aziende DIVERSE da quelle già trovate.
 
-PRIORITÀ EMAIL (in ordine di preferenza - SOLO queste categorie):
-1. 🟢 Email HR/Recruiting: hr@, jobs@, careers@, recruiting@, personale@, karriere@, lavoro@, selezione@, bewerbung@, risorse.umane@, human.resources@
-2. 🟢 Email nominative di responsabili HR/recruiting (nome.cognome@azienda.com) trovate su pagina "Lavora con noi" o "Team"
-3. 🟡 Email nominative generiche (nome.cognome@azienda.com) di titolari/direttori - SOLO per PMI dove il titolare gestisce le assunzioni
-4. 🔴 ESCLUDI TUTTO IL RESTO: info@, contact@, admin@, support@, noreply@, segreteria@, reception@, vendite@, sales@, marketing@, ufficio@
+ZONA: ${location} (${onlySelectedCity ? 'SOLO questa città' : `raggio ${radius} km`})
+PUNTO DI PARTENZA: ${originCity}
+${locationContext}
 
-Se un'azienda ha SOLO email generiche (info@, contact@, ecc.) e NESSUNA email HR/nominativa → metti email = null
+KEYWORDS ESPANSE: ${expandedKws.join(', ')}
+KEYWORDS ORIGINALI: ${keywords.join(', ')}
+${targetRole ? `RUOLO TARGET: ${targetRole}` : ''}
 
-LIVELLI DI VERIFICA EMAIL:
-- "verified_official" = Email HR/recruiting trovata direttamente sul sito ufficiale dell'azienda
-- "verified_directory" = Email trovata su directory pubblica E confermata sul sito ufficiale
-- "directory_only" = Email trovata solo su directory, non confermata sul sito
-- "unverified" = Email incerta o non verificabile
-- null = Nessuna email adatta a candidatura trovata
+⚠️ NON includere queste aziende già trovate:
+${existingNames.join(', ')}
 
-FONTI DA CONSIDERARE:
-- local.ch, search.ch, yellow.ch (Svizzera)
-- Pagine Gialle, Pagine Bianche, Virgilio Aziende (Italia)
-- Comparis.ch, tutti.ch
-- Registri delle imprese cantonali/regionali
-- Camere di commercio (CCIA)
-- Siti web ufficiali aziendali
-- LinkedIn Company Pages
-- Parchi industriali e zone artigianali locali
-- Associazioni di categoria del settore
+Cerca aziende NUOVE non ancora nella lista. Esplora:
+- Sotto-settori e nicchie correlate
+- Aziende più piccole o meno note
+- Zone industriali e artigianali locali
+- Ditte individuali e studi professionali
 
-ISTRUZIONI CRITICHE - RICERCA PROFONDA:
-1. Genera ALMENO ${minResults} aziende realistiche - più sono meglio è!
-2. NON limitarti alle grandi aziende - includi anche PMI, artigiani, studi professionali
-3. Copri TUTTE le città/comuni nella zona di ricerca
-4. Includi aziende di settori CORRELATI ma SOLO se sono potenziali DATORI DI LAVORO
+Calcola distanza e tempo da ${originCity}.`;
 
-⚠️ REGOLA CRITICA - FILTRAGGIO TIPOLOGIA AZIENDA:
-Le keywords/settori indicati rappresentano il LAVORO che il candidato vuole FARE, NON i prodotti che vuole comprare.
-Devi trovare aziende che ASSUMONO persone per svolgere quel tipo di lavoro.
+        return aiSearch(aiGatewayUrl, aiGatewayToken, baseSystemPrompt, prompt);
+      });
 
-ESEMPI DI FILTRAGGIO CORRETTO:
-- Keyword "Verniciatura" → ✅ Carrozzerie, imprese edili, aziende di verniciatura industriale, cantieri navali
-                          → ❌ Negozi di vernici, colorifici, ferramenta che vendono pittura
-- Keyword "Elettricista" → ✅ Imprese elettriche, ditte di installazione, aziende di manutenzione
-                          → ❌ Negozi di materiale elettrico, rivenditori di componenti
-- Keyword "Cucina"       → ✅ Ristoranti, hotel, catering, mense aziendali
-                          → ❌ Negozi di cucine, showroom di arredamento
-- Keyword "Meccanica"    → ✅ Officine meccaniche, aziende di produzione, manutenzione industriale
-                          → ❌ Rivenditori di ricambi, negozi di auto
-- Keyword "Agenzie" / "Agenzie per il lavoro" → ✅ TUTTE le agenzie di collocamento, interinali e di somministrazione lavoro attive in Svizzera:
-  Adecco, Randstad, Manpower, Kelly Services, Gi Group, Synergie, Grafton, Michael Page, Hays, Robert Half, 
-  Adecco Staffing, Tempojob, Interiman, Adia (Adecco), Helvetic Employment, Careerplus, Universal Job, 
-  Page Personnel, Robert Walters, Swissstaffing members, Experis, Antal, Aquila, Wander, Arkos, 
-  Temporis, Axia, Covebo, Flexjob, Flextime, Globaljob, Staff Finder, Tekna, Profil Search, 
-  Vivian's, Joker Personal, Ontime, Personal Sigma, Coople, Jobchannel, Jobeo, Staffxperts,
-  e qualsiasi altra agenzia interinale/di collocamento operativa nella zona di ricerca.
-  → ❌ Agenzie immobiliari, agenzie di viaggio, agenzie pubblicitarie, agenzie assicurative
-  → ⚠️ Per le agenzie: cerca SPECIFICAMENTE le FILIALI/SEDI nella zona indicata, non solo la sede principale
-
-PRINCIPIO: L'azienda deve avere BISOGNO di un lavoratore con quelle competenze, non vendere prodotti correlati.
-
-CALCOLO DISTANZA E TEMPO DI PERCORRENZA - STIMA REALISTICA OBBLIGATORIA:
-- Calcola la distanza approssimativa in km da "${originCity}" per OGNI azienda
-- Calcola il tempo di percorrenza IN AUTO con STIMA REALISTICA, NON teorica
-
-FATTORI DA CONSIDERARE PER IL TEMPO:
-1. Tipologia strade: strade di montagna, tornanti, statali strette = più lente
-2. Passaggi di confine Italia-Svizzera: aggiungi 5-15 min per code e controlli
-3. Zone urbane congestionate: ingresso città come Lugano, Como = rallentamenti
-4. Orari di punta (mattino 7-9, sera 17-19): considera traffico medio
-5. Strade reali, non linea d'aria: es. Laino-Lugano sono ~25km ma 30-45 min reali
-
-REGOLE TEMPO:
-- NON usare formule teoriche tipo "km/velocità"
-- Preferisci stime PRUDENTI, non ottimistiche
-- Se c'è incertezza, arrotonda PER ECCESSO
-- Usa intervalli quando appropriato: "30-40 min", "circa 35 min"
-- Formato: "X min" oppure "Xh Ymin" (es. "35-45 min", "circa 40 min", "1h 15min")
-
-ORDINAMENTO RISULTATI - IMPORTANTE:
-1. PRIMA le aziende con email verificata (verified_official, verified_directory)
-2. POI le aziende con email da directory
-3. INFINE le aziende senza email
-4. All'interno di ogni gruppo, ordina per distanza crescente
-
-DIVERSIFICA LE TIPOLOGIE:
-- Aziende multinazionali con sede locale
-- Medie imprese regionali
-- Piccole imprese locali
-- Artigiani e studi professionali
-- Cooperative e consorzi
-- Agenzie e studi di consulenza
-- Enti e organizzazioni del settore
-
-Rispondi SOLO con un array JSON valido (senza markdown, senza backticks, almeno ${minResults} aziende):
-[
-  {
-    "name": "Nome Azienda SA",
-    "sector": "Settore principale",
-    "address": "Indirizzo completo se disponibile",
-    "city": "Città",
-    "website": "https://www.esempio.ch",
-    "email": "hr@esempio.ch o null se non trovata/verificata",
-    "email_verified": "verified_official|verified_directory|directory_only|unverified|null",
-    "email_source": "URL esatto dove è stata trovata l'email (es. https://www.esempio.ch/contatti) o null",
-    "phone": "+41 XX XXX XX XX o null",
-    "contact_type": "generic|hr|jobs|form_only|phone_only",
-    "source": "Fonte suggerita per verifica",
-    "match_score": 85,
-    "match_reasons": ["motivo1", "motivo2"],
-    "distance_km": 15,
-    "travel_time": "25 min"
-  }
-]`;
-
-    const response = await fetch(aiGatewayUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${aiGatewayToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          {
-            role: 'system',
-            content: `Sei un database vivente di aziende svizzere e italiane specializzato nella ricerca di contatti HR e recruiting REALMENTE FUNZIONANTI.
-
-LA TUA PRIORITÀ ASSOLUTA È TROVARE EMAIL DI RECRUITING/HR VERIFICATE, ATTIVE E CON ALTA DELIVERABILITY.
-L'utente sta cercando lavoro - ha bisogno di email dove inviare il suo CV con CERTEZZA di consegna.
-
-Per ogni azienda che includi:
-1. DEVI aver "visto" l'email in una fonte pubblica verificabile e RECENTE (ultimi 12 mesi)
-2. DEVI indicare esattamente DOVE hai trovato l'email (URL specifico)
-3. DEVI indicare il livello di verifica dell'email
-4. Se non trovi un'email HR/recruiting REALE, VERIFICATA e ATTIVA, metti null - MAI inventare
-5. NON includere email generiche (info@, contact@, support@) - sono INUTILI per candidature
-6. Se un'azienda ha SOLO email generiche → ESCLUDI l'azienda dal risultato
-
-ESCLUDI SEMPRE: info@, contact@, contatti@, admin@, support@, noreply@, segreteria@, reception@, vendite@, sales@, marketing@
-CERCA SEMPRE: hr@, jobs@, careers@, recruiting@, personale@, oppure email nominative di responsabili HR
-
-DELIVERABILITY - REGOLE CRITICHE:
-- ESCLUDI domini noti per bloccare allegati o rifiutare email da Gmail/Hotmail
-- ESCLUDI email catch-all su domini sospetti
-- PREFERISCI domini aziendali attivi con sito web funzionante
-- ESCLUDI email su domini scaduti, parcheggiati o non raggiungibili
-- Se hai dubbi sulla funzionalità dell'email → NON includerla
-
-RISULTATO IDEALE: Meglio 5 aziende con email HR verificate e funzionanti che 50 con email dubbie o generiche.`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7, // Abbassato per maggiore accuratezza
-        max_tokens: 32000
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', errorText);
-      throw new Error(`AI request failed: ${response.status}`);
+      const expansionResults = await Promise.all(expansionPromises);
+      for (let i = 0; i < expansionResults.length; i++) {
+        const newCount = addCompanies(expansionResults[i], `Pass 2.${i + 1}`);
+        searchStats.companiesPerPass.push({ pass: `Espansione keyword ${i + 1}`, found: expansionResults[i].length, new: newCount });
+        console.log(`Pass 2.${i + 1}: Found ${expansionResults[i].length}, New unique: ${newCount}, Total: ${allCompanies.size}`);
+      }
     }
 
-    const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content;
+    // ═══════════════════════════════════════════════
+    // PASS 3: Related sectors and company types
+    // ═══════════════════════════════════════════════
+    if (allCompanies.size < targetCount) {
+      console.log('--- PASS 3: Related sectors ---');
+      searchStats.totalPasses++;
+      searchStats.totalAiCalls++;
 
-    if (!content) {
-      throw new Error('No response from AI');
+      const existingNames = Array.from(allCompanies.keys()).slice(0, 50).map(n => allCompanies.get(n)!.name);
+      const needed = targetCount - allCompanies.size;
+
+      const pass3Prompt = `Il candidato cerca lavoro nei settori: ${keywords.join(', ')}${targetRole ? `, ruolo: ${targetRole}` : ''}.
+
+Finora ho trovato ${allCompanies.size} aziende ma ne servono almeno ${targetCount}. Devo trovare altre ${needed} aziende NUOVE.
+
+ZONA: ${location} (${onlySelectedCity ? 'SOLO questa città' : `raggio ${radius} km`})
+PUNTO DI PARTENZA: ${originCity}
+${locationContext}
+
+STRATEGIA: Cerca in settori CORRELATI e tipologie di aziende DIVERSE:
+1. Aziende di settori affini che potrebbero assumere il stesso profilo
+2. Fornitori e partner di aziende del settore principale
+3. Cooperative, consorzi, enti di settore
+4. Aziende che stanno attivamente assumendo (career page attiva)
+5. Startup e nuove imprese della zona
+6. Filiali locali di grandi gruppi
+7. Aziende artigiane e studi professionali
+
+⚠️ ESCLUDI queste aziende già trovate:
+${existingNames.join(', ')}
+
+Genera ALMENO ${Math.max(needed, 15)} aziende NUOVE.
+Calcola distanza e tempo da ${originCity}.`;
+
+      const pass3Results = await aiSearch(aiGatewayUrl, aiGatewayToken, baseSystemPrompt, pass3Prompt);
+      const pass3New = addCompanies(pass3Results, 'Pass 3');
+      searchStats.companiesPerPass.push({ pass: 'Settori correlati', found: pass3Results.length, new: pass3New });
+      console.log(`Pass 3: Found ${pass3Results.length}, New unique: ${pass3New}, Total: ${allCompanies.size}`);
     }
 
-    // Parse JSON from response - handle truncated responses
-    let companies;
-    try {
-      let jsonStr = content.trim();
-      if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
-      }
-      
-      // Try to parse as-is first
-      try {
-        companies = JSON.parse(jsonStr);
-      } catch {
-        // If parsing fails, try to recover partial JSON array
-        console.log('Initial parse failed, attempting recovery...');
-        
-        // Find the last complete object in the array
-        let lastValidIndex = jsonStr.lastIndexOf('}');
-        while (lastValidIndex > 0) {
-          const testStr = jsonStr.substring(0, lastValidIndex + 1) + ']';
-          try {
-            companies = JSON.parse(testStr);
-            console.log('Recovered', companies.length, 'companies from truncated response');
-            break;
-          } catch {
-            // Find the previous closing brace
-            lastValidIndex = jsonStr.lastIndexOf('}', lastValidIndex - 1);
-          }
+    // ═══════════════════════════════════════════════
+    // PASS 4: Geographic expansion (if not city-only)
+    // ═══════════════════════════════════════════════
+    if (allCompanies.size < targetCount && !onlySelectedCity) {
+      const locationVariants = expandLocations(location, radius, onlySelectedCity);
+
+      if (locationVariants.length > 0) {
+        console.log('--- PASS 4: Geographic expansion ---');
+        searchStats.totalPasses++;
+
+        const existingNames = Array.from(allCompanies.keys()).slice(0, 60).map(n => allCompanies.get(n)!.name);
+
+        // Run location variants in parallel (max 2)
+        const geoPromises = locationVariants.slice(0, 2).map(async (variant) => {
+          searchStats.totalAiCalls++;
+          const needed = Math.ceil((targetCount - allCompanies.size) / locationVariants.length);
+
+          const prompt = `Cerca ALMENO ${Math.max(needed, 10)} aziende nella zona di ${variant}.
+
+SETTORI: ${keywords.join(', ')}
+${targetRole ? `RUOLO TARGET: ${targetRole}` : ''}
+PUNTO DI PARTENZA: ${originCity}
+
+⚠️ ESCLUDI queste aziende già trovate:
+${existingNames.join(', ')}
+
+Cerca aziende NUOVE in ${variant} raggiungibili da ${originCity}.
+Calcola distanza e tempo da ${originCity}.`;
+
+          return { results: await aiSearch(aiGatewayUrl, aiGatewayToken, baseSystemPrompt, prompt), variant };
+        });
+
+        const geoResults = await Promise.all(geoPromises);
+        for (const { results, variant } of geoResults) {
+          const newCount = addCompanies(results, `Pass 4: ${variant}`);
+          searchStats.companiesPerPass.push({ pass: `Zona: ${variant}`, found: results.length, new: newCount });
+          console.log(`Pass 4 (${variant}): Found ${results.length}, New: ${newCount}, Total: ${allCompanies.size}`);
         }
-        
-        if (!companies) {
-          throw new Error('Could not recover valid JSON');
-        }
       }
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', content.substring(0, 500) + '...');
-      throw new Error('Failed to parse companies data from AI response');
     }
 
-    // Validate and clean companies
-    if (!Array.isArray(companies)) {
-      companies = [companies];
+    // ═══════════════════════════════════════════════
+    // PASS 5: Final aggressive push if still under target
+    // ═══════════════════════════════════════════════
+    if (allCompanies.size < targetCount * 0.6) {
+      console.log('--- PASS 5: Aggressive final push ---');
+      searchStats.totalPasses++;
+      searchStats.totalAiCalls++;
+
+      const existingNames = Array.from(allCompanies.keys()).slice(0, 70).map(n => allCompanies.get(n)!.name);
+      const needed = targetCount - allCompanies.size;
+
+      const pass5Prompt = `RICERCA AGGRESSIVA FINALE. Servono ancora ${needed} aziende.
+
+ZONA: ${location} e ${onlySelectedCity ? 'SOLO questa città' : `tutto il circondario fino a ${radius} km`}
+PUNTO DI PARTENZA: ${originCity}
+SETTORI: ${keywords.join(', ')}
+
+Ho già trovato ${allCompanies.size} aziende. Il target è ${targetCount}.
+
+STRATEGIA MASSIMA COPERTURA:
+1. Cerca in TUTTE le zone industriali e artigianali della zona
+2. Cerca OGNI tipo di azienda che potrebbe assumere questo profilo
+3. Includi aziende di QUALSIASI dimensione (da 1 a 10000 dipendenti)
+4. Cerca aziende che hanno pubblicato offerte di lavoro recentemente
+5. Cerca aziende partner/fornitrici/clienti di quelle già trovate
+6. Cerca nei registri delle imprese cantonali/regionali
+7. Cerca nelle associazioni di categoria
+8. Includi anche aziende con solo telefono (senza email) se rilevanti
+
+⚠️ ESCLUDI queste aziende già trovate:
+${existingNames.join(', ')}
+
+Genera ALMENO ${needed} aziende NUOVE.
+Calcola distanza e tempo da ${originCity}.`;
+
+      const pass5Results = await aiSearch(aiGatewayUrl, aiGatewayToken, baseSystemPrompt, pass5Prompt);
+      const pass5New = addCompanies(pass5Results, 'Pass 5');
+      searchStats.companiesPerPass.push({ pass: 'Ricerca aggressiva finale', found: pass5Results.length, new: pass5New });
+      console.log(`Pass 5: Found ${pass5Results.length}, New unique: ${pass5New}, Total: ${allCompanies.size}`);
     }
 
-    // Remove duplicates by name
-    const seen = new Set();
-    companies = companies.filter((c: any) => {
-      const key = c.name?.toLowerCase().trim();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    // Determine stop reason
+    if (allCompanies.size >= targetCount) {
+      searchStats.stoppedReason = `Obiettivo raggiunto: trovate ${allCompanies.size} aziende su ${targetCount} richieste.`;
+    } else {
+      searchStats.stoppedReason = `Trovate ${allCompanies.size} aziende su ${targetCount} richieste dopo ${searchStats.totalPasses} passaggi e ${searchStats.totalAiCalls} query AI. La zona "${location}" con i settori selezionati ha un numero limitato di aziende corrispondenti.`;
+    }
 
-    // Generic email prefixes to reject (not useful for job applications)
-    const genericPrefixes = [
-      'info', 'contact', 'contatti', 'contatto', 'amministrazione', 'admin',
-      'support', 'supporto', 'noreply', 'no-reply', 'segreteria', 'reception',
-      'ufficio', 'vendite', 'sales', 'marketing', 'webmaster', 'postmaster',
-      'office', 'hello', 'help', 'service', 'general', 'mail', 'email',
-      'direzione', 'comunicazione', 'press', 'stampa', 'billing', 'invoice',
-      'fatturazione', 'acquisti', 'procurement', 'ordini', 'orders',
-      'feedback', 'newsletter', 'subscribe', 'unsubscribe', 'abuse',
-      'privacy', 'legal', 'compliance', 'accounting', 'contabilita',
-      'commerciale', 'tecnico', 'assistenza', 'prenotazioni', 'booking',
-      'reservation', 'shop', 'store', 'ecommerce'
-    ];
+    // Convert map to sorted array
+    let companies = Array.from(allCompanies.values());
 
-    // Suspicious/disposable domains to reject
-    const suspiciousDomains = [
-      'example.com', 'test.com', 'localhost', 'email.com', 'mail.com',
-      'temp-mail.org', 'guerrillamail.com', 'mailinator.com'
-    ];
-
-    // Clean and validate email data
-    companies = companies.map((c: any) => {
-      let email = c.email;
-      let emailVerified = c.email_verified || null;
-      let emailSource = c.email_source || null;
-      
-      if (email) {
-        email = email.trim().toLowerCase();
-        // Check for null-like strings
-        if (['null', 'n/a', 'undefined', 'none', '-', '', 'na', 'n.a.', 'nessuna'].includes(email)) {
-          email = null;
-          emailVerified = null;
-          emailSource = null;
-        }
-      }
-      
-      // Validate email format
-      if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-        console.log(`Invalid email format: ${email} for ${c.name}`);
-        email = null;
-        emailVerified = null;
-        emailSource = null;
-      }
-      
-      // Filter out generic emails not useful for job applications
-      if (email) {
-        const prefix = email.split('@')[0];
-        const domain = email.split('@')[1];
-        
-        if (genericPrefixes.includes(prefix)) {
-          console.log(`Filtered generic email: ${email} for ${c.name}`);
-          email = null;
-          emailVerified = null;
-          emailSource = null;
-        }
-        
-        // Filter suspicious domains
-        if (domain && suspiciousDomains.includes(domain)) {
-          console.log(`Filtered suspicious domain: ${email} for ${c.name}`);
-          email = null;
-          emailVerified = null;
-          emailSource = null;
-        }
-      }
-      
-      // If email exists but no verification level, mark as unverified
-      if (email && !emailVerified) {
-        emailVerified = 'unverified';
-      }
-      
-      return {
-        ...c,
-        email,
-        email_verified: email ? emailVerified : null,
-        email_source: email ? emailSource : null,
-      };
-    });
-
-    // Sort companies: email first, then without email (keep all for maximum results)
-    const companiesWithEmail = companies.filter((c: any) => c.email !== null);
-    const companiesWithoutEmail = companies.filter((c: any) => c.email === null);
-    companies = [...companiesWithEmail, ...companiesWithoutEmail];
-
-    // Sort by email verification status first, then by distance
+    // Sort: email first, then by verification, then by distance
     const verificationPriority: Record<string, number> = {
       'verified_official': 1,
       'verified_directory': 2,
@@ -424,39 +550,36 @@ RISULTATO IDEALE: Meglio 5 aziende con email HR verificate e funzionanti che 50 
       'unverified': 4,
     };
 
-    companies.sort((a: any, b: any) => {
-      // First sort by email existence
+    companies.sort((a, b) => {
       const aHasEmail = a.email ? 1 : 0;
       const bHasEmail = b.email ? 1 : 0;
-      if (aHasEmail !== bHasEmail) return bHasEmail - aHasEmail; // Email first
-      
-      // Then by verification level
+      if (aHasEmail !== bHasEmail) return bHasEmail - aHasEmail;
+
       if (a.email && b.email) {
-        const aPriority = verificationPriority[a.email_verified] || 5;
-        const bPriority = verificationPriority[b.email_verified] || 5;
+        const aPriority = verificationPriority[a.email_verified || ''] || 5;
+        const bPriority = verificationPriority[b.email_verified || ''] || 5;
         if (aPriority !== bPriority) return aPriority - bPriority;
       }
-      
-      // Finally by distance
+
       return (a.distance_km || 999) - (b.distance_km || 999);
     });
 
-    // Count email statistics
     const emailStats = {
       total: companies.length,
-      withEmail: companies.filter((c: any) => c.email).length,
-      verified: companies.filter((c: any) => ['verified_official', 'verified_directory'].includes(c.email_verified)).length,
+      withEmail: companies.filter(c => c.email).length,
+      verified: companies.filter(c => ['verified_official', 'verified_directory'].includes(c.email_verified || '')).length,
     };
 
-    console.log('Found', companies.length, 'companies. Email stats:', emailStats);
+    console.log(`=== SEARCH COMPLETE === Total: ${companies.length}, With email: ${emailStats.withEmail}, Passes: ${searchStats.totalPasses}, AI calls: ${searchStats.totalAiCalls}`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        data: companies, 
-        total: companies.length, 
+      JSON.stringify({
+        success: true,
+        data: companies,
+        total: companies.length,
         originCity,
-        emailStats 
+        emailStats,
+        searchStats,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
