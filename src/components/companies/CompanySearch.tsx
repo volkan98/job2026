@@ -246,7 +246,6 @@ export function CompanySearch() {
       }
 
       const mappedAziende: Azienda[] = result.data.map((company: Company, index: number) => {
-        // Normalizza l'email: gestisce null, undefined, stringa vuota e stringa "null"
         const normalizedEmail = company.email && 
           company.email.trim() !== '' && 
           company.email.toLowerCase() !== 'null' &&
@@ -255,7 +254,6 @@ export function CompanySearch() {
           ? company.email.trim() 
           : null;
 
-        // Normalizza email_source
         const normalizedEmailSource = company.email_source && 
           company.email_source.trim() !== '' && 
           company.email_source.toLowerCase() !== 'null' &&
@@ -277,6 +275,14 @@ export function CompanySearch() {
           fonte: company.source || 'AI Search',
           distanza: company.distance_km || 0,
           tempoPercorrenza: company.travel_time || '',
+          domainValid: company.domain_valid ?? null,
+          emailExplicit: company.email_explicit ?? false,
+          emailSourceType: company.email_source_type ?? null,
+          smtpStatus: company.smtp_status ?? null,
+          catchAll: company.catch_all ?? null,
+          confidenceScore: company.confidence_score ?? 0,
+          finalStatus: company.final_status || 'discarded',
+          contactFormUrl: company.contact_form_url ?? null,
         };
       });
 
