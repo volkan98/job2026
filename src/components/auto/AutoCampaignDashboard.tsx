@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAutoCampaign, CampaignSetupData } from '@/hooks/useAutoCampaign';
@@ -16,7 +16,7 @@ import {
   Rocket, Pause, Play, Square, Search, Send, AlertTriangle,
   CheckCircle2, Clock, XCircle, Loader2, Sparkles, Building2,
   Mail, Shield, Timer, RotateCcw, Zap, Activity, Target,
-  TrendingUp, RefreshCw
+  TrendingUp, RefreshCw, Terminal
 } from 'lucide-react';
 
 const KEYWORDS = [
