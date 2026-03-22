@@ -28,7 +28,7 @@ export function StepIndicator({ currentStep, onStepClick }: StepIndicatorProps) 
         {steps.map((step, index) => {
           const isCompleted = currentStep > step.id;
           const isCurrent = currentStep === step.id;
-          const isClickable = onStepClick && currentStep >= step.id;
+          const isClickable = onStepClick && (currentStep >= step.id || step.id === 5);
 
           return (
             <li key={step.id} className="flex items-center flex-1 last:flex-none">
