@@ -351,8 +351,8 @@ export function CompanySearch() {
   };
 
   const selectAll = () => {
-    const aziendeWithEmail = filteredAziende.filter(a => a.email);
-    setAziendeSelezionate(aziendeWithEmail);
+    const readyCompanies = filteredAziende.filter(a => a.email && a.finalStatus === 'ready_to_send');
+    setAziendeSelezionate(readyCompanies);
   };
 
   const exportCSV = () => {
