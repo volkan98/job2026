@@ -90,6 +90,7 @@ export function CompanySearch() {
   const [hasSavedPreferences, setHasSavedPreferences] = useState(false);
   const [sentEmails, setSentEmails] = useState<Set<string>>(new Set());
   const [sentDomains, setSentDomains] = useState<Set<string>>(new Set());
+  const [sentCompanyNames, setSentCompanyNames] = useState<Set<string>>(new Set());
 
   // Carica le email già inviate all'avvio
   useEffect(() => {
