@@ -343,7 +343,7 @@ async function processCampaign(sb: any, campaign: any) {
       try {
         const genResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai-generate-email`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: fnHeaders,
           body: JSON.stringify({
             company: {
               name: item.company_name,
