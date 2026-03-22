@@ -99,6 +99,7 @@ export function CompanySearch() {
         const emails = await aiAgent.getSentEmails();
         const emailSet = new Set<string>();
         const domainSet = new Set<string>();
+        const nameSet = new Set<string>();
         
         emails.forEach((e: any) => {
           if (e.email) {
@@ -106,10 +107,18 @@ export function CompanySearch() {
             const domain = e.email.split('@')[1]?.toLowerCase();
             if (domain) domainSet.add(domain);
           }
+          if (e.company_name) {
+            // Normalizza il nome: rimuovi suffissi legali e spazi
+            const normalized = e.company_name.toLowerCase().trim()
+              .replace(/\s*(sa|sagl|srl|spa|snc|sas|ag|gmbh|ltd|s\.a\.|s\.r\.l\.)\s*$/i, '')
+              .trim();
+            nameSet.add(normalized);
+          }
         });
         
         setSentEmails(emailSet);
         setSentDomains(domainSet);
+        setSentCompanyNames(nameSet);
       } catch (error) {
         console.error('Error loading sent emails:', error);
       }
