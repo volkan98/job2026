@@ -697,7 +697,7 @@ export function EmailComposer() {
                       <Button 
                         variant="outline" 
                         onClick={() => {
-                          const fullEmail = `${currentEmail.corpo}\n\n${currentEmail.firma}`;
+                          const fullEmail = toPlainText(`${currentEmail.corpo}\n\n${currentEmail.firma}`);
                           navigator.clipboard.writeText(fullEmail);
                           toast({
                             title: 'Copiato!',
@@ -712,8 +712,8 @@ export function EmailComposer() {
                       <Button
                         variant="outline"
                         onClick={() => {
-                          const subject = encodeURIComponent(currentEmail.oggetto);
-                          const body = encodeURIComponent(`${currentEmail.corpo}\n\n${currentEmail.firma}`);
+                          const subject = encodeURIComponent(toPlainText(currentEmail.oggetto));
+                          const body = encodeURIComponent(toPlainText(`${currentEmail.corpo}\n\n${currentEmail.firma}`));
                           window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${selectedAzienda?.email}&su=${subject}&body=${body}`, '_blank');
                         }}
                       >
@@ -724,8 +724,8 @@ export function EmailComposer() {
                       <Button
                         variant="outline"
                         onClick={() => {
-                          const subject = encodeURIComponent(currentEmail.oggetto);
-                          const body = encodeURIComponent(`${currentEmail.corpo}\n\n${currentEmail.firma}`);
+                          const subject = encodeURIComponent(toPlainText(currentEmail.oggetto));
+                          const body = encodeURIComponent(toPlainText(`${currentEmail.corpo}\n\n${currentEmail.firma}`));
                           window.open(`mailto:${selectedAzienda?.email}?subject=${subject}&body=${body}`, '_blank');
                         }}
                       >
