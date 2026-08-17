@@ -17,6 +17,14 @@ export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const describeError = (message?: string) => {
+    if (!message) return 'Si è verificato un errore imprevisto.';
+    if (/failed to fetch|networkerror|load failed|fetch/i.test(message)) {
+      return 'Backend non raggiungibile: il servizio potrebbe essere in avvio. Riprova tra qualche secondo.';
+    }
+    return message;
+  };
+
   useEffect(() => {
     // Check if already logged in
     const checkSession = async () => {
@@ -63,7 +71,7 @@ export default function Auth() {
         } else {
           toast({
             title: 'Errore',
-            description: error.message,
+            description: describeError(error.message),
             variant: 'destructive',
           });
         }
@@ -71,7 +79,7 @@ export default function Auth() {
     } catch (error: any) {
       toast({
         title: 'Errore',
-        description: 'Si è verificato un errore durante l\'accesso.',
+        description: describeError(error?.message),
         variant: 'destructive',
       });
     } finally {
@@ -107,7 +115,7 @@ export default function Auth() {
         } else {
           toast({
             title: 'Errore',
-            description: error.message,
+            description: describeError(error.message),
             variant: 'destructive',
           });
         }
@@ -120,7 +128,7 @@ export default function Auth() {
     } catch (error: any) {
       toast({
         title: 'Errore',
-        description: 'Si è verificato un errore durante la registrazione.',
+        description: describeError(error?.message),
         variant: 'destructive',
       });
     } finally {
