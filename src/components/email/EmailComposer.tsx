@@ -38,6 +38,14 @@ import {
   Shield
 } from 'lucide-react';
 
+// Rimuove i tag HTML (es. <b>) per i client che mostrano solo testo semplice
+const toPlainText = (value: string) =>
+  (value || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&');
+
 type EmailStyle = 'breve' | 'standard' | 'formale';
 
 interface LocalEmailTemplate {
