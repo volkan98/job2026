@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCVContext } from '@/contexts/CVContext';
 import { aiAgent, Company } from '@/lib/api/ai-agent';
+import { supabase } from '@/integrations/supabase/client';
 import { Azienda } from '@/types/cv';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -297,8 +298,33 @@ export function CompanySearch() {
         };
       });
 
+      // Escludi aziende già contattate (email o dominio già presenti in sent_emails)
+      let filtered = mappedAziende;
+      let excludedCount = 0;
+      const { data: sent } = await supabase
+        .from('sent_emails')
+        .select('email, domain, company_name');
+
+      if (sent && sent.length > 0) {
+        const sentEmails = new Set(sent.map(s => (s.email || '').toLowerCase()));
+        const sentDomains = new Set(sent.map(s => (s.domain || '').toLowerCase()).filter(Boolean));
+        const sentNames = new Set(sent.map(s => (s.company_name || '').trim().toLowerCase()).filter(Boolean));
+
+        filtered = mappedAziende.filter(a => {
+          const email = (a.email || '').toLowerCase();
+          const domain = email.split('@')[1] || '';
+          const name = (a.nome || '').trim().toLowerCase();
+          return !(
+            (email && sentEmails.has(email)) ||
+            (domain && sentDomains.has(domain)) ||
+            (name && sentNames.has(name))
+          );
+        });
+        excludedCount = mappedAziende.length - filtered.length;
+      }
+
       // Le aziende sono già ordinate per distanza dal backend
-      setAziende(mappedAziende);
+      setAziende(filtered);
       setHasSearched(true);
       
       const statsInfo = result.searchStats 
@@ -307,7 +333,7 @@ export function CompanySearch() {
       
       toast({
         title: 'Ricerca completata!',
-        description: `Trovate ${mappedAziende.length} aziende${statsInfo}.`,
+        description: `Trovate ${filtered.length} aziende${excludedCount > 0 ? ` (${excludedCount} già contattate escluse)` : ''}${statsInfo}.`,
       });
     } catch (error: any) {
       console.error('Search error:', error);
