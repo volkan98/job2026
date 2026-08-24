@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { CVData, Azienda, EmailTemplate, LogInvio } from '@/types/cv';
 
 interface CVContextType {
@@ -22,36 +22,51 @@ interface CVContextType {
 
 const CVContext = createContext<CVContextType | undefined>(undefined);
 
+const PREFIX = 'cv_app_';
+
+function loadPersisted<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(PREFIX + key) ?? sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// Persisted state hook: keeps value in localStorage so a page reload restores everything
+function usePersistedState<T>(key: string, fallback: T) {
+  const [value, setValue] = useState<T>(() => loadPersisted(key, fallback));
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    } catch {
+      /* quota or serialization issues are non-fatal */
+    }
+  }, [key, value]);
+
+  return [value, setValue] as const;
+}
+
 export function CVProvider({ children }: { children: ReactNode }) {
-  const [cvData, setCvData] = useState<CVData | null>(null);
+  const [cvData, setCvData] = usePersistedState<CVData | null>('cvData', null);
+  // File objects can't be serialized: kept in memory only
   const [cvFile, setCvFile] = useState<File | null>(null);
-  const [sintesiBreve, setSintesiBreve] = useState('');
-  const [sintesiCompleta, setSintesiCompleta] = useState('');
-  const [aziendeSelezionate, setAziendeSelezionateRaw] = useState<Azienda[]>(() => {
-    try {
-      const saved = sessionStorage.getItem('cv_aziende_selezionate');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-  const setAziendeSelezionate = (aziende: Azienda[]) => {
-    setAziendeSelezionateRaw(aziende);
-    try { sessionStorage.setItem('cv_aziende_selezionate', JSON.stringify(aziende)); } catch {}
-  };
-  const [emailTemplate, setEmailTemplate] = useState<EmailTemplate | null>(null);
-  const [logInvii, setLogInvii] = useState<LogInvio[]>([]);
-  const [currentStep, setCurrentStepRaw] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('cv_current_step');
-      return saved ? parseInt(saved, 10) : 0;
-    } catch { return 0; }
-  });
-  const setCurrentStep = (step: number) => {
-    setCurrentStepRaw(step);
-    try { sessionStorage.setItem('cv_current_step', String(step)); } catch {}
-  };
+  const [sintesiBreve, setSintesiBreve] = usePersistedState('sintesiBreve', '');
+  const [sintesiCompleta, setSintesiCompleta] = usePersistedState('sintesiCompleta', '');
+  const [aziendeSelezionate, setAziendeSelezionate] = usePersistedState<Azienda[]>(
+    'cv_aziende_selezionate',
+    [],
+  );
+  const [emailTemplate, setEmailTemplate] = usePersistedState<EmailTemplate | null>(
+    'emailTemplate',
+    null,
+  );
+  const [logInvii, setLogInvii] = usePersistedState<LogInvio[]>('logInvii', []);
+  const [currentStep, setCurrentStep] = usePersistedState<number>('cv_current_step', 0);
 
   const addLogInvio = (log: LogInvio) => {
-    setLogInvii(prev => [log, ...prev]);
+    setLogInvii((prev) => [log, ...prev]);
   };
 
   return (
