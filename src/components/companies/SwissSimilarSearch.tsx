@@ -113,6 +113,11 @@ export function SwissSimilarSearch() {
 
   const [isSearching, setIsSearching] = useState(false);
   const [progress, setProgress] = useState('');
+  const [done, setDone] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [foundCount, setFoundCount] = useState(0);
+  const [eta, setEta] = useState('');
+
   const [results, setResults] = useState<ScoredAzienda[]>(() => {
     try {
       const raw = localStorage.getItem(RESULTS_KEY);
