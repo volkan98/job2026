@@ -35,6 +35,7 @@ import {
   Link2
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SwissSimilarSearch } from './SwissSimilarSearch';
 
 interface SavedSearchPreferences {
   searchLocation: string;
@@ -419,6 +420,9 @@ export function CompanySearch() {
           L'AI cerca aziende nella tua zona e trova contatti email pubblici
         </p>
       </div>
+
+      {/* Ricerca per similarità aziendale in Svizzera / Ticino */}
+      <SwissSimilarSearch />
 
       {/* Search Form */}
       <Card>
