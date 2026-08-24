@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -50,7 +51,16 @@ const PAINTING_KEYWORD_SETS: string[][] = [
 ];
 
 
+function formatDuration(ms: number): string {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r ? `${m}m ${r}s` : `${m}m`;
+}
+
 function loadSet(key: string): Set<string> {
+
   try {
     const raw = localStorage.getItem(key);
     return new Set<string>(raw ? JSON.parse(raw) : []);
@@ -113,6 +123,11 @@ export function SwissSimilarSearch() {
 
   const [isSearching, setIsSearching] = useState(false);
   const [progress, setProgress] = useState('');
+  const [done, setDone] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [foundCount, setFoundCount] = useState(0);
+  const [eta, setEta] = useState('');
+
   const [results, setResults] = useState<ScoredAzienda[]>(() => {
     try {
       const raw = localStorage.getItem(RESULTS_KEY);
@@ -161,52 +176,71 @@ export function SwissSimilarSearch() {
     const uniqueCities = [...new Set(cities)];
     const target = parseInt(maxCompanies, 10);
 
+    // Ricerca completa: tutte le combinazioni parola chiave × città (nessuna fretta)
+    const searchCities = mode === 'ticino' ? uniqueCities : uniqueCities;
+    const totalQueries = PAINTING_KEYWORD_SETS.length * searchCities.length;
+    const startedAt = Date.now();
+    setDone(0);
+    setTotal(totalQueries);
+    setFoundCount(0);
+    setEta('');
+
     try {
       let queryIdx = 0;
-      outer: for (const keywordSet of PAINTING_KEYWORD_SETS) {
-        for (const city of uniqueCities.slice(0, mode === 'ticino' ? 6 : 5)) {
-          if (seen.size >= target) break outer;
+      for (const keywordSet of PAINTING_KEYWORD_SETS) {
+        for (const city of searchCities) {
           queryIdx += 1;
-          setProgress(`Ricerca ${queryIdx}: ${keywordSet[0]} — ${city}`);
+          setProgress(`${keywordSet[0]} — ${city}`);
 
-          const res = await aiAgent.searchCompanies(
-            `${city}, Svizzera`,
-            parseInt(radius, 10),
-            keywordSet,
-            cvData?.competenze,
-            'verniciatore industriale',
-            Math.min(25, target),
-            cvData?.citta || startCity,
-            false,
-          );
+          try {
+            const res = await aiAgent.searchCompanies(
+              `${city}, Svizzera`,
+              parseInt(radius, 10),
+              keywordSet,
+              cvData?.competenze,
+              'verniciatore industriale',
+              Math.min(25, target),
+              cvData?.citta || startCity,
+              false,
+            );
 
-          if (!res.success || !res.data) continue;
+            if (res.success && res.data) {
+              res.data.forEach((c, i) => {
+                const azienda = mapCompany(c, city, seen.size + i);
+                // Solo aziende con sito web verificato online dal backend
+                if (!azienda.nome || !azienda.sito) return;
+                // Mai email inventate: teniamo solo quelle estratte realmente dal sito
+                if (azienda.email && !azienda.emailExplicit) {
+                  azienda.email = null;
+                  azienda.emailVerified = null;
+                  azienda.emailSource = null;
+                }
 
-          res.data.forEach((c, i) => {
-            const azienda = mapCompany(c, city, seen.size + i);
-            // Solo aziende con sito web verificato online dal backend
-            if (!azienda.nome || !azienda.sito) return;
-            // Mai email inventate: teniamo solo quelle estratte realmente dal sito
-            if (azienda.email && !azienda.emailExplicit) {
-              azienda.email = null;
-              azienda.emailVerified = null;
-              azienda.emailSource = null;
+                const keys = dedupeKeys(azienda);
+                const existingId = keys.map((k) => keyIndex.get(k)).find(Boolean);
+                if (existingId) {
+                  const prev = seen.get(existingId)!;
+                  seen.set(existingId, mergeCompany(prev, azienda));
+                  return;
+                }
+                if (onlyNew && keys.some((k) => analyzed.has(k))) return;
+                keys.forEach((k) => keyIndex.set(k, azienda.id));
+                seen.set(azienda.id, azienda);
+              });
             }
+          } catch (err) {
+            console.error('Query fallita, continuo:', err);
+          }
 
-
-            const keys = dedupeKeys(azienda);
-            const existingId = keys.map((k) => keyIndex.get(k)).find(Boolean);
-            if (existingId) {
-              const prev = seen.get(existingId)!;
-              seen.set(existingId, mergeCompany(prev, azienda));
-              return;
-            }
-            if (onlyNew && keys.some((k) => analyzed.has(k))) return;
-            keys.forEach((k) => keyIndex.set(k, azienda.id));
-            seen.set(azienda.id, azienda);
-          });
+          setDone(queryIdx);
+          setFoundCount(seen.size);
+          const elapsed = Date.now() - startedAt;
+          const avg = elapsed / queryIdx;
+          const remaining = Math.max(0, totalQueries - queryIdx) * avg;
+          setEta(formatDuration(remaining));
         }
       }
+
 
       // Escludi aziende già contattate (anti-spam / anti duplicati)
       const { data: sent } = await supabase.from('sent_emails').select('email, domain, company_name');
@@ -366,15 +400,32 @@ export function SwissSimilarSearch() {
             </p>
 
 
+            {isSearching && total > 0 && (
+              <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Query {done}/{total} — {progress}
+                  </span>
+                  <span>{Math.round((done / total) * 100)}%</span>
+                </div>
+                <Progress value={(done / total) * 100} className="h-2" />
+                <p className="text-xs text-muted-foreground">
+                  {foundCount} aziende raccolte{eta ? ` • tempo stimato rimanente: ~${eta}` : ''}
+                </p>
+              </div>
+            )}
+
             <div className="flex justify-end">
               <Button onClick={runSearch} disabled={isSearching}>
                 {isSearching ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{progress || 'Ricerca in corso...'}</>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Ricerca approfondita in corso…</>
                 ) : (
-                  <>Avvia ricerca similarità</>
+                  <>Avvia ricerca approfondita</>
                 )}
               </Button>
             </div>
+
           </div>
         )}
 
