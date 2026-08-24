@@ -25,9 +25,9 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_WEIGHTS,
-  ScoreWeights,
+
   ScoredAzienda,
-  SIMILARITY_KEYWORD_SETS,
+
   SWISS_CITIES,
   TICINO_CITIES,
   dedupeKeys,
