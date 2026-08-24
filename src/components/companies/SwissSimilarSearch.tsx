@@ -399,15 +399,32 @@ export function SwissSimilarSearch() {
             </p>
 
 
+            {isSearching && total > 0 && (
+              <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Query {done}/{total} — {progress}
+                  </span>
+                  <span>{Math.round((done / total) * 100)}%</span>
+                </div>
+                <Progress value={(done / total) * 100} className="h-2" />
+                <p className="text-xs text-muted-foreground">
+                  {foundCount} aziende raccolte{eta ? ` • tempo stimato rimanente: ~${eta}` : ''}
+                </p>
+              </div>
+            )}
+
             <div className="flex justify-end">
               <Button onClick={runSearch} disabled={isSearching}>
                 {isSearching ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{progress || 'Ricerca in corso...'}</>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Ricerca approfondita in corso…</>
                 ) : (
-                  <>Avvia ricerca similarità</>
+                  <>Avvia ricerca approfondita</>
                 )}
               </Button>
             </div>
+
           </div>
         )}
 
