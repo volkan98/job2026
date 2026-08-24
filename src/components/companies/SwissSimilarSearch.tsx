@@ -50,7 +50,16 @@ const PAINTING_KEYWORD_SETS: string[][] = [
 ];
 
 
+function formatDuration(ms: number): string {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r ? `${m}m ${r}s` : `${m}m`;
+}
+
 function loadSet(key: string): Set<string> {
+
   try {
     const raw = localStorage.getItem(key);
     return new Set<string>(raw ? JSON.parse(raw) : []);
