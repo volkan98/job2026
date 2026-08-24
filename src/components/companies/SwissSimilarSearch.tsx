@@ -25,9 +25,9 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_WEIGHTS,
-  ScoreWeights,
+
   ScoredAzienda,
-  SIMILARITY_KEYWORD_SETS,
+
   SWISS_CITIES,
   TICINO_CITIES,
   dedupeKeys,
@@ -39,6 +39,16 @@ import {
 const ANALYZED_KEY = 'swiss_similar_analyzed';
 const RESULTS_KEY = 'swiss_similar_results';
 const EXCLUDED_KEY = 'swiss_similar_excluded';
+
+// Ricerca automatica e mirata: verniciatura industriale / trattamento superfici
+const PAINTING_KEYWORD_SETS: string[][] = [
+  ['verniciatura industriale', 'verniciatura a liquido', 'verniciatura a polvere'],
+  ['verniciatura metalli', 'trattamento superfici', 'sabbiatura'],
+  ['industrial coating', 'powder coating', 'wet painting'],
+  ['industrielle Lackierung', 'Pulverbeschichtung', 'Oberflächenbehandlung'],
+  ['peinture industrielle', 'traitement de surface', 'thermolaquage'],
+];
+
 
 function loadSet(key: string): Set<string> {
   try {
@@ -99,7 +109,7 @@ export function SwissSimilarSearch() {
   const [findContacts, setFindContacts] = useState(true);
   const [autoAdd, setAutoAdd] = useState(false);
   const [onlyNew, setOnlyNew] = useState(false);
-  const [weights, setWeights] = useState<ScoreWeights>(DEFAULT_WEIGHTS);
+  const weights = DEFAULT_WEIGHTS;
 
   const [isSearching, setIsSearching] = useState(false);
   const [progress, setProgress] = useState('');
@@ -153,7 +163,7 @@ export function SwissSimilarSearch() {
 
     try {
       let queryIdx = 0;
-      outer: for (const keywordSet of SIMILARITY_KEYWORD_SETS) {
+      outer: for (const keywordSet of PAINTING_KEYWORD_SETS) {
         for (const city of uniqueCities.slice(0, mode === 'ticino' ? 6 : 5)) {
           if (seen.size >= target) break outer;
           queryIdx += 1;
@@ -174,8 +184,15 @@ export function SwissSimilarSearch() {
 
           res.data.forEach((c, i) => {
             const azienda = mapCompany(c, city, seen.size + i);
-            // Verifica minima: nome + (sito o email o telefono)
-            if (!azienda.nome || (!azienda.sito && !azienda.email && !azienda.telefono)) return;
+            // Solo aziende con sito web verificato online dal backend
+            if (!azienda.nome || !azienda.sito) return;
+            // Mai email inventate: teniamo solo quelle estratte realmente dal sito
+            if (azienda.email && !azienda.emailExplicit) {
+              azienda.email = null;
+              azienda.emailVerified = null;
+              azienda.emailSource = null;
+            }
+
 
             const keys = dedupeKeys(azienda);
             const existingId = keys.map((k) => keyIndex.get(k)).find(Boolean);
@@ -342,24 +359,12 @@ export function SwissSimilarSearch() {
               </label>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {(['company', 'cv', 'distance', 'contact'] as const).map((k) => (
-                <div key={k}>
-                  <label className="text-xs text-muted-foreground mb-1 block">
-                    Peso {k === 'company' ? 'azienda' : k === 'cv' ? 'CV' : k === 'distance' ? 'distanza' : 'contatto'}: {weights[k]}%
-                  </label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={weights[k]}
-                    onChange={(e) => setWeights({ ...weights, [k]: Number(e.target.value) })}
-                    className="w-full accent-primary"
-                  />
-                </div>
-              ))}
-            </div>
+            <p className="text-xs text-muted-foreground">
+              La ricerca è automatica e mirata alle aziende di <strong>verniciatura industriale</strong> e
+              trattamento superfici. Vengono mostrate solo aziende con <strong>sito web online verificato</strong> e
+              email estratta realmente dal sito (mai inventata).
+            </p>
+
 
             <div className="flex justify-end">
               <Button onClick={runSearch} disabled={isSearching}>
