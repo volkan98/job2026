@@ -161,52 +161,71 @@ export function SwissSimilarSearch() {
     const uniqueCities = [...new Set(cities)];
     const target = parseInt(maxCompanies, 10);
 
+    // Ricerca completa: tutte le combinazioni parola chiave × città (nessuna fretta)
+    const searchCities = mode === 'ticino' ? uniqueCities : uniqueCities;
+    const totalQueries = PAINTING_KEYWORD_SETS.length * searchCities.length;
+    const startedAt = Date.now();
+    setDone(0);
+    setTotal(totalQueries);
+    setFoundCount(0);
+    setEta('');
+
     try {
       let queryIdx = 0;
-      outer: for (const keywordSet of PAINTING_KEYWORD_SETS) {
-        for (const city of uniqueCities.slice(0, mode === 'ticino' ? 6 : 5)) {
-          if (seen.size >= target) break outer;
+      for (const keywordSet of PAINTING_KEYWORD_SETS) {
+        for (const city of searchCities) {
           queryIdx += 1;
-          setProgress(`Ricerca ${queryIdx}: ${keywordSet[0]} — ${city}`);
+          setProgress(`${keywordSet[0]} — ${city}`);
 
-          const res = await aiAgent.searchCompanies(
-            `${city}, Svizzera`,
-            parseInt(radius, 10),
-            keywordSet,
-            cvData?.competenze,
-            'verniciatore industriale',
-            Math.min(25, target),
-            cvData?.citta || startCity,
-            false,
-          );
+          try {
+            const res = await aiAgent.searchCompanies(
+              `${city}, Svizzera`,
+              parseInt(radius, 10),
+              keywordSet,
+              cvData?.competenze,
+              'verniciatore industriale',
+              Math.min(25, target),
+              cvData?.citta || startCity,
+              false,
+            );
 
-          if (!res.success || !res.data) continue;
+            if (res.success && res.data) {
+              res.data.forEach((c, i) => {
+                const azienda = mapCompany(c, city, seen.size + i);
+                // Solo aziende con sito web verificato online dal backend
+                if (!azienda.nome || !azienda.sito) return;
+                // Mai email inventate: teniamo solo quelle estratte realmente dal sito
+                if (azienda.email && !azienda.emailExplicit) {
+                  azienda.email = null;
+                  azienda.emailVerified = null;
+                  azienda.emailSource = null;
+                }
 
-          res.data.forEach((c, i) => {
-            const azienda = mapCompany(c, city, seen.size + i);
-            // Solo aziende con sito web verificato online dal backend
-            if (!azienda.nome || !azienda.sito) return;
-            // Mai email inventate: teniamo solo quelle estratte realmente dal sito
-            if (azienda.email && !azienda.emailExplicit) {
-              azienda.email = null;
-              azienda.emailVerified = null;
-              azienda.emailSource = null;
+                const keys = dedupeKeys(azienda);
+                const existingId = keys.map((k) => keyIndex.get(k)).find(Boolean);
+                if (existingId) {
+                  const prev = seen.get(existingId)!;
+                  seen.set(existingId, mergeCompany(prev, azienda));
+                  return;
+                }
+                if (onlyNew && keys.some((k) => analyzed.has(k))) return;
+                keys.forEach((k) => keyIndex.set(k, azienda.id));
+                seen.set(azienda.id, azienda);
+              });
             }
+          } catch (err) {
+            console.error('Query fallita, continuo:', err);
+          }
 
-
-            const keys = dedupeKeys(azienda);
-            const existingId = keys.map((k) => keyIndex.get(k)).find(Boolean);
-            if (existingId) {
-              const prev = seen.get(existingId)!;
-              seen.set(existingId, mergeCompany(prev, azienda));
-              return;
-            }
-            if (onlyNew && keys.some((k) => analyzed.has(k))) return;
-            keys.forEach((k) => keyIndex.set(k, azienda.id));
-            seen.set(azienda.id, azienda);
-          });
+          setDone(queryIdx);
+          setFoundCount(seen.size);
+          const elapsed = Date.now() - startedAt;
+          const avg = elapsed / queryIdx;
+          const remaining = Math.max(0, totalQueries - queryIdx) * avg;
+          setEta(formatDuration(remaining));
         }
       }
+
 
       // Escludi aziende già contattate (anti-spam / anti duplicati)
       const { data: sent } = await supabase.from('sent_emails').select('email, domain, company_name');
