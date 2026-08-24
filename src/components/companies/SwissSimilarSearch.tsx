@@ -342,24 +342,12 @@ export function SwissSimilarSearch() {
               </label>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {(['company', 'cv', 'distance', 'contact'] as const).map((k) => (
-                <div key={k}>
-                  <label className="text-xs text-muted-foreground mb-1 block">
-                    Peso {k === 'company' ? 'azienda' : k === 'cv' ? 'CV' : k === 'distance' ? 'distanza' : 'contatto'}: {weights[k]}%
-                  </label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={weights[k]}
-                    onChange={(e) => setWeights({ ...weights, [k]: Number(e.target.value) })}
-                    className="w-full accent-primary"
-                  />
-                </div>
-              ))}
-            </div>
+            <p className="text-xs text-muted-foreground">
+              La ricerca è automatica e mirata alle aziende di <strong>verniciatura industriale</strong> e
+              trattamento superfici. Vengono mostrate solo aziende con <strong>sito web online verificato</strong> e
+              email estratta realmente dal sito (mai inventata).
+            </p>
+
 
             <div className="flex justify-end">
               <Button onClick={runSearch} disabled={isSearching}>
