@@ -420,6 +420,9 @@ export function CompanySearch() {
         </p>
       </div>
 
+      {/* Ricerca per similarità aziendale in Svizzera / Ticino */}
+      <SwissSimilarSearch />
+
       {/* Search Form */}
       <Card>
         <CardContent className="p-4 md:p-6 space-y-4">
