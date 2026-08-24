@@ -99,7 +99,7 @@ export function SwissSimilarSearch() {
   const [findContacts, setFindContacts] = useState(true);
   const [autoAdd, setAutoAdd] = useState(false);
   const [onlyNew, setOnlyNew] = useState(false);
-  const [weights, setWeights] = useState<ScoreWeights>(DEFAULT_WEIGHTS);
+  const weights = DEFAULT_WEIGHTS;
 
   const [isSearching, setIsSearching] = useState(false);
   const [progress, setProgress] = useState('');
