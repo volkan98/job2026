@@ -1078,7 +1078,24 @@ Calcola distanza e tempo da ${originCity}.`;
     // Convert map to sorted array
     let companies = Array.from(allCompanies.values());
 
+    // --- Verifica reale del sito + estrazione email dalle pagine ---
+    console.log("--- Website liveness + real email extraction ---");
+    const beforeLive = companies.length;
+    companies = await verifyWebsitesAndExtractEmails(companies);
+    const removedDead = beforeLive - companies.length;
+    if (removedDead > 0) {
+      searchStats.companiesPerPass.push({
+        pass: "Verifica siti online + email reali",
+        found: beforeLive,
+        new: -removedDead,
+      });
+    }
+    console.log(
+      `Website check: ${beforeLive} -> ${companies.length} (rimosse ${removedDead} con sito offline/inesistente)`,
+    );
+
     console.log("--- DNS + recipient-level validation ---");
+
     const companiesWithEmail = companies.filter((c) => c.email);
     let invalidatedCount = 0;
 
