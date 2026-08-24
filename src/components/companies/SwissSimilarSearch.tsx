@@ -163,7 +163,7 @@ export function SwissSimilarSearch() {
 
     try {
       let queryIdx = 0;
-      outer: for (const keywordSet of SIMILARITY_KEYWORD_SETS) {
+      outer: for (const keywordSet of PAINTING_KEYWORD_SETS) {
         for (const city of uniqueCities.slice(0, mode === 'ticino' ? 6 : 5)) {
           if (seen.size >= target) break outer;
           queryIdx += 1;
@@ -184,8 +184,15 @@ export function SwissSimilarSearch() {
 
           res.data.forEach((c, i) => {
             const azienda = mapCompany(c, city, seen.size + i);
-            // Verifica minima: nome + (sito o email o telefono)
-            if (!azienda.nome || (!azienda.sito && !azienda.email && !azienda.telefono)) return;
+            // Solo aziende con sito web verificato online dal backend
+            if (!azienda.nome || !azienda.sito) return;
+            // Mai email inventate: teniamo solo quelle estratte realmente dal sito
+            if (azienda.email && !azienda.emailExplicit) {
+              azienda.email = null;
+              azienda.emailVerified = null;
+              azienda.emailSource = null;
+            }
+
 
             const keys = dedupeKeys(azienda);
             const existingId = keys.map((k) => keyIndex.get(k)).find(Boolean);
