@@ -433,7 +433,191 @@ function parseCompaniesJSON(content: string): any[] {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Verifica reale del sito aziendale ed estrazione email SOLO dalle pagine
+// (nessuna email inventata: se non è scritta nel sito, non viene usata)
+// ---------------------------------------------------------------------------
+
+const CONTACT_PATHS = [
+  "/contatti",
+  "/contatto",
+  "/contact",
+  "/contact-us",
+  "/kontakt",
+  "/impressum",
+  "/chi-siamo",
+  "/about",
+  "/azienda",
+];
+
+const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+const BAD_EMAIL_PART =
+  /\.(png|jpe?g|gif|svg|webp|css|js|woff2?)$/i;
+const BAD_EMAIL_DOMAINS = [
+  "sentry.io",
+  "sentry-next.wixpress.com",
+  "wixpress.com",
+  "example.com",
+  "domain.com",
+  "yourdomain.com",
+  "email.com",
+  "godaddy.com",
+  "squarespace.com",
+  "wordpress.com",
+  "cloudflare.com",
+];
+
+function normalizeUrl(raw: string): string | null {
+  if (!raw) return null;
+  let u = raw.trim();
+  if (!u || u === "null" || u === "n/a") return null;
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+  try {
+    const parsed = new URL(u);
+    if (!parsed.hostname.includes(".")) return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPage(url: string, timeoutMs = 8000): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      redirect: "follow",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; JobAgentBot/1.0; +https://lovable.dev)",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return null;
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("html") && !ct.includes("text")) return null;
+    return (await res.text()).slice(0, 400_000);
+  } catch {
+    return null;
+  }
+}
+
+function extractEmailsFromHtml(
+  html: string,
+  siteHost: string,
+): { email: string; type: "mailto" | "page_text" }[] {
+  const found: { email: string; type: "mailto" | "page_text" }[] = [];
+  const seen = new Set<string>();
+
+  const push = (raw: string, type: "mailto" | "page_text") => {
+    const email = raw.trim().toLowerCase().replace(/^mailto:/, "").split("?")[0];
+    if (!email || seen.has(email)) return;
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) return;
+    if (BAD_EMAIL_PART.test(email)) return;
+    const domain = email.split("@")[1];
+    if (!domain || BAD_EMAIL_DOMAINS.some((d) => domain.endsWith(d))) return;
+    if (SUSPICIOUS_DOMAINS.has(domain)) return;
+    seen.add(email);
+    found.push({ email, type });
+  };
+
+  for (const m of html.matchAll(/mailto:([^"'>\s]+)/gi)) push(m[1], "mailto");
+  // email offuscate tipo "info (at) azienda.ch"
+  const deobf = html
+    .replace(/\s*\(\s*at\s*\)\s*/gi, "@")
+    .replace(/\s*\[\s*at\s*\]\s*/gi, "@")
+    .replace(/\s*\(\s*punto\s*\)\s*/gi, ".")
+    .replace(/\s*\[\s*dot\s*\]\s*/gi, ".");
+  for (const m of deobf.matchAll(EMAIL_RE)) push(m[0], "page_text");
+
+  // priorità: stesso dominio del sito, poi mailto
+  const hostRoot = siteHost.replace(/^www\./, "");
+  return found.sort((a, b) => {
+    const aSame = a.email.endsWith(`@${hostRoot}`) ||
+      a.email.split("@")[1]?.endsWith(hostRoot)
+      ? 0
+      : 1;
+    const bSame = b.email.endsWith(`@${hostRoot}`) ||
+      b.email.split("@")[1]?.endsWith(hostRoot)
+      ? 0
+      : 1;
+    if (aSame !== bSame) return aSame - bSame;
+    if (a.type !== b.type) return a.type === "mailto" ? -1 : 1;
+    return 0;
+  });
+}
+
+async function verifyOneCompany(c: CompanyResult): Promise<CompanyResult | null> {
+  const origin = normalizeUrl(c.website || "");
+  if (!origin) return null; // nessun sito verificabile → scartata
+
+  let html = await fetchPage(origin);
+  if (!html) {
+    // riprova con/senza www
+    const alt = origin.includes("://www.")
+      ? origin.replace("://www.", "://")
+      : origin.replace("://", "://www.");
+    html = await fetchPage(alt);
+    if (!html) return null; // sito offline → scartata
+  }
+
+  const host = new URL(origin).hostname;
+  let candidates = extractEmailsFromHtml(html, host);
+
+  if (candidates.length === 0) {
+    for (const path of CONTACT_PATHS) {
+      const page = await fetchPage(origin + path, 6000);
+      if (!page) continue;
+      candidates = extractEmailsFromHtml(page, host);
+      if (candidates.length > 0) break;
+    }
+  }
+
+  const best = candidates[0];
+  if (!best) {
+    // sito online ma nessuna email pubblicata: mai inventarla
+    return {
+      ...c,
+      website: origin,
+      email: null,
+      email_verified: null,
+      email_source: null,
+      email_explicit: false,
+      email_source_type: null,
+      confidence_score: 0,
+      contact_type: c.contact_form_url ? "form_only" : "phone_only",
+      final_status: c.contact_form_url ? "risky_send" : "discarded",
+    };
+  }
+
+  return {
+    ...c,
+    website: origin,
+    email: best.email,
+    email_verified: "verified_official",
+    email_source: origin,
+    email_explicit: true,
+    email_source_type: best.type,
+    confidence_score: 90,
+    contact_type: "generic",
+    final_status: "risky_send",
+  };
+}
+
+async function verifyWebsitesAndExtractEmails(
+  companies: CompanyResult[],
+): Promise<CompanyResult[]> {
+  const out: CompanyResult[] = [];
+  const batchSize = 6;
+  for (let i = 0; i < companies.length; i += batchSize) {
+    const batch = companies.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map((c) => verifyOneCompany(c)));
+    for (const r of results) if (r) out.push(r);
+  }
+  return out;
+}
+
 function normalizeCompanyName(name: string): string {
+
   return name.toLowerCase().trim()
     .replace(
       /\s*(sa|sagl|srl|spa|snc|sas|ag|gmbh|ltd|s\.a\.|s\.r\.l\.)\s*$/i,
@@ -1078,7 +1262,24 @@ Calcola distanza e tempo da ${originCity}.`;
     // Convert map to sorted array
     let companies = Array.from(allCompanies.values());
 
+    // --- Verifica reale del sito + estrazione email dalle pagine ---
+    console.log("--- Website liveness + real email extraction ---");
+    const beforeLive = companies.length;
+    companies = await verifyWebsitesAndExtractEmails(companies);
+    const removedDead = beforeLive - companies.length;
+    if (removedDead > 0) {
+      searchStats.companiesPerPass.push({
+        pass: "Verifica siti online + email reali",
+        found: beforeLive,
+        new: -removedDead,
+      });
+    }
+    console.log(
+      `Website check: ${beforeLive} -> ${companies.length} (rimosse ${removedDead} con sito offline/inesistente)`,
+    );
+
     console.log("--- DNS + recipient-level validation ---");
+
     const companiesWithEmail = companies.filter((c) => c.email);
     let invalidatedCount = 0;
 
