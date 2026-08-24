@@ -40,6 +40,16 @@ const ANALYZED_KEY = 'swiss_similar_analyzed';
 const RESULTS_KEY = 'swiss_similar_results';
 const EXCLUDED_KEY = 'swiss_similar_excluded';
 
+// Ricerca automatica e mirata: verniciatura industriale / trattamento superfici
+const PAINTING_KEYWORD_SETS: string[][] = [
+  ['verniciatura industriale', 'verniciatura a liquido', 'verniciatura a polvere'],
+  ['verniciatura metalli', 'trattamento superfici', 'sabbiatura'],
+  ['industrial coating', 'powder coating', 'wet painting'],
+  ['industrielle Lackierung', 'Pulverbeschichtung', 'Oberflächenbehandlung'],
+  ['peinture industrielle', 'traitement de surface', 'thermolaquage'],
+];
+
+
 function loadSet(key: string): Set<string> {
   try {
     const raw = localStorage.getItem(key);
