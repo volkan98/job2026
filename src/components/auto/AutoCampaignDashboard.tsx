@@ -192,6 +192,7 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
             </div>
           </div>
 
+          {!isSwissMode && (
           <div>
             <label className="text-sm font-medium mb-2 block">Settori</label>
             <div className="flex flex-wrap gap-2">
