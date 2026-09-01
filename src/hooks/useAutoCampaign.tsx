@@ -137,6 +137,7 @@ export function useAutoCampaign() {
     const { data, error } = await supabase.from('auto_campaigns').insert({
       user_id: user.id,
       status: 'running',
+      search_mode: setup.search_mode || 'standard',
       search_location: setup.search_location,
       search_location_query: setup.search_location_query || setup.search_location,
       search_radius: setup.search_radius,
