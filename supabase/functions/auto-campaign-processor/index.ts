@@ -471,7 +471,7 @@ async function processCampaign(sb: any, campaign: any) {
         const cityRound = Math.floor(cycle / SWISS_PAINTING_KEYWORD_SETS.length);
         const city = SWISS_PAINTING_CITIES[cityRound % SWISS_PAINTING_CITIES.length];
         searchKeywords = kwSet;
-        searchLocation = `${city}, Svizzera`;
+        searchLocation = `${city}, Canton Ticino, Svizzera`;
         onlySelectedCity = false;
         await logEvent(
           sb,
