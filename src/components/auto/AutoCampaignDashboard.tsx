@@ -143,9 +143,9 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
                     : 'border-border hover:border-primary/50'
                 }`}
               >
-                <div className="font-semibold text-sm">🇨🇭 Verniciatura Svizzera</div>
+                <div className="font-semibold text-sm">🇨🇭 Verniciatura Ticino – Zona Bioggio/Lugano</div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Aziende di verniciatura industriale in Ticino e Svizzera, siti verificati
+                  Ricerca mirata entro 10-15 min da Bioggio. Priorità Manno, Lamone, Bedano. Esclusi Mendrisio e Chiasso.
                 </div>
               </button>
             </div>
