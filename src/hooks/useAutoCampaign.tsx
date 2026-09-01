@@ -61,6 +61,7 @@ export interface CampaignSetupData {
   include_risky: boolean;
   user_city?: string;
   cv_file_path?: string;
+  search_mode?: 'standard' | 'swiss_painting';
 }
 
 export function useAutoCampaign() {

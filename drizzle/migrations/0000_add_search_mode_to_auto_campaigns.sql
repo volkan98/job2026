@@ -1,0 +1,1 @@
+ALTER TABLE public.auto_campaigns ADD COLUMN IF NOT EXISTS search_mode text NOT NULL DEFAULT 'standard';
