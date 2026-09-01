@@ -36,6 +36,7 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
   const { profile } = useUserProfile();
   const { connectedProviders, connect } = useEmailOAuth();
 
+  const [searchMode, setSearchMode] = useState<'standard' | 'swiss_painting'>('standard');
   const [location, setLocation] = useState(cvData?.citta || '');
   const [locationSelection, setLocationSelection] = useState<LocationSelection | null>(null);
   const [radius, setRadius] = useState('30');
@@ -46,10 +47,28 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
   const [onlyCity, setOnlyCity] = useState(false);
 
   const hasGmail = connectedProviders.some(p => p.provider === 'gmail');
+  const isSwissMode = searchMode === 'swiss_painting';
 
   const handleStart = () => {
+    if (isSwissMode) {
+      onStart({
+        search_mode: 'swiss_painting',
+        search_location: 'Ticino, Svizzera',
+        search_location_query: 'Lugano, Ticino, Svizzera',
+        search_radius: 50,
+        search_keywords: ['verniciatura'],
+        only_selected_city: false,
+        target_total: parseInt(target),
+        email_style: emailStyle,
+        include_risky: includeRisky,
+        user_city: cvData?.citta || 'Lugano',
+        cv_file_path: profile?.cv_file_path || undefined,
+      });
+      return;
+    }
     if (!location || keywords.length === 0) return;
     onStart({
+      search_mode: 'standard',
       search_location: location,
       search_location_query: locationSelection?.searchQuery || location,
       search_radius: parseInt(radius),
