@@ -115,6 +115,43 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
+            <label className="text-sm font-medium mb-2 block">Modalità di ricerca</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSearchMode('standard')}
+                className={`p-3 rounded-lg border text-left transition-colors ${
+                  !isSwissMode
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <div className="font-semibold text-sm flex items-center gap-1.5">
+                  <Search className="h-4 w-4" /> Standard
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Scegli città e settori manualmente
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchMode('swiss_painting')}
+                className={`p-3 rounded-lg border text-left transition-colors ${
+                  isSwissMode
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <div className="font-semibold text-sm">🇨🇭 Verniciatura Svizzera</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Aziende di verniciatura industriale in Ticino e Svizzera, siti verificati
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {!isSwissMode && (
+          <div>
             <label className="text-sm font-medium mb-2 block">📍 Zona / Città</label>
             <CityAutocomplete
               placeholder="es. Lugano, Ticino..."
