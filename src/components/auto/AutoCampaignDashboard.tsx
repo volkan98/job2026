@@ -242,17 +242,19 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
               <Checkbox id="includeRisky" checked={includeRisky} onCheckedChange={(c) => setIncludeRisky(c as boolean)} />
               <label htmlFor="includeRisky" className="text-sm cursor-pointer">Includi contatti "risky" (meno verificati)</label>
             </div>
+            {!isSwissMode && (
             <div className="flex items-center gap-2">
               <Checkbox id="onlyCity" checked={onlyCity} onCheckedChange={(c) => setOnlyCity(c as boolean)} />
               <label htmlFor="onlyCity" className="text-sm cursor-pointer">Solo città selezionata</label>
             </div>
+            )}
           </div>
 
           <Button
             className="w-full"
             size="lg"
             onClick={handleStart}
-            disabled={!hasGmail || !location || keywords.length === 0}
+            disabled={!hasGmail || (!isSwissMode && (!location || keywords.length === 0))}
           >
             <Rocket className="h-5 w-5 mr-2" />
             Avvia Auto Mode
