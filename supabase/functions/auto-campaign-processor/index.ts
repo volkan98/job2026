@@ -524,6 +524,13 @@ async function processCampaign(sb: any, campaign: any) {
       for (const company of searchResult.data) {
         if (!company.email || !company.name) continue;
 
+        // 🇨🇭 Zona Bioggio: scarta tutto ciò che è fuori area (Mendrisiotto, oltre Bellinzona, altri cantoni)
+        if (campaign.search_mode === "swiss_painting" && !isInBioggioZone(company)) {
+          continue;
+        }
+
+
+
         // Check status filter
         const status = company.final_status || "discarded";
         if (status === "discarded") continue;
