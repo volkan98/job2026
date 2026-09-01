@@ -160,6 +160,8 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
               onLocationSelect={setLocationSelection}
             />
           </div>
+          )}
+
 
           <div className="grid grid-cols-2 gap-4">
             <div>
