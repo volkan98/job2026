@@ -210,6 +210,18 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
               ))}
             </div>
           </div>
+          )}
+
+          {isSwissMode && (
+            <Alert className="border-primary/30 bg-primary/5">
+              <Search className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-sm">
+                Il bot cercherà automaticamente aziende di <strong>verniciatura industriale</strong> in
+                Ticino e nel resto della Svizzera (IT/DE/FR/EN), verificando che ogni sito sia
+                online e che l'email sia reale. Rotazione automatica di parole chiave e città a ogni ciclo.
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
