@@ -478,6 +478,9 @@ function CampaignDashboard({
       <Card>
         <CardContent className="pt-4 pb-4">
           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            {(campaign as any).search_mode === 'swiss_painting' && (
+              <Badge variant="outline" className="border-primary/40 text-primary">🇨🇭 Verniciatura Svizzera</Badge>
+            )}
             <span>📍 {campaign.search_location}</span>
             <span>📏 {campaign.search_radius} km</span>
             <span>🔑 {campaign.search_keywords?.join(', ')}</span>
