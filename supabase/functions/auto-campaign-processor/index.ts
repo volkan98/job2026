@@ -17,6 +17,21 @@ const HOURLY_LIMIT = 15;
 const COOLDOWN_MINUTES = 9;
 const EMAILS_PER_INVOCATION = 3;
 
+// 🇨🇭 Modalità verniciatura Svizzera: rotazione keyword × città a ogni ciclo
+const SWISS_PAINTING_KEYWORD_SETS: string[][] = [
+  ["verniciatura industriale", "verniciatura a liquido", "verniciatura a polvere"],
+  ["verniciatura metalli", "trattamento superfici", "sabbiatura"],
+  ["industrial coating", "powder coating", "wet painting"],
+  ["industrielle Lackierung", "Pulverbeschichtung", "Oberflächenbehandlung"],
+  ["peinture industrielle", "traitement de surface", "thermolaquage"],
+];
+
+const SWISS_PAINTING_CITIES = [
+  "Lugano", "Mendrisio", "Bellinzona", "Locarno", "Manno", "Chiasso",
+  "Stabio", "Giubiasco", "Zurigo", "Basilea", "Berna", "Losanna",
+  "Ginevra", "San Gallo", "Winterthur", "Lucerna",
+];
+
 function supabaseAdmin() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 }
@@ -421,19 +436,43 @@ async function processCampaign(sb: any, campaign: any) {
     );
 
     try {
+      // Swiss painting mode: rotate keyword sets and cities per cycle
+      let searchLocation = campaign.search_location_query ||
+        campaign.search_location;
+      let searchKeywords = campaign.search_keywords;
+      let onlySelectedCity = campaign.only_selected_city;
+
+      if (campaign.search_mode === "swiss_painting") {
+        const cycle = Math.max(0, (campaign.current_search_cycle || 1) - 1);
+        const kwSet = SWISS_PAINTING_KEYWORD_SETS[
+          cycle % SWISS_PAINTING_KEYWORD_SETS.length
+        ];
+        const cityRound = Math.floor(cycle / SWISS_PAINTING_KEYWORD_SETS.length);
+        const city = SWISS_PAINTING_CITIES[cityRound % SWISS_PAINTING_CITIES.length];
+        searchKeywords = kwSet;
+        searchLocation = `${city}, Svizzera`;
+        onlySelectedCity = false;
+        await logEvent(
+          sb,
+          campaignId,
+          userId,
+          "search_started",
+          `🇨🇭 Ricerca verniciatura: ${kwSet[0]} — ${city}`,
+        );
+      }
+
       const searchResponse = await fetch(
         `${SUPABASE_URL}/functions/v1/ai-search-companies`,
         {
           method: "POST",
           headers: fnHeaders,
           body: JSON.stringify({
-            location: campaign.search_location_query ||
-              campaign.search_location,
+            location: searchLocation,
             radius: campaign.search_radius,
-            keywords: campaign.search_keywords,
+            keywords: searchKeywords,
             minResults: Math.min(50, campaign.target_total - (sentCount || 0)),
             userCity: campaign.user_city,
-            onlySelectedCity: campaign.only_selected_city,
+            onlySelectedCity,
           }),
         },
       );

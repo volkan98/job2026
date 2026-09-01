@@ -31,6 +31,7 @@ export type Database = {
           search_keywords: string[]
           search_location: string
           search_location_query: string | null
+          search_mode: string
           search_radius: number
           started_at: string | null
           status: string
@@ -61,6 +62,7 @@ export type Database = {
           search_keywords?: string[]
           search_location: string
           search_location_query?: string | null
+          search_mode?: string
           search_radius?: number
           started_at?: string | null
           status?: string
@@ -91,6 +93,7 @@ export type Database = {
           search_keywords?: string[]
           search_location?: string
           search_location_query?: string | null
+          search_mode?: string
           search_radius?: number
           started_at?: string | null
           status?: string

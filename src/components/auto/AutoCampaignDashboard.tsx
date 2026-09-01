@@ -36,6 +36,7 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
   const { profile } = useUserProfile();
   const { connectedProviders, connect } = useEmailOAuth();
 
+  const [searchMode, setSearchMode] = useState<'standard' | 'swiss_painting'>('standard');
   const [location, setLocation] = useState(cvData?.citta || '');
   const [locationSelection, setLocationSelection] = useState<LocationSelection | null>(null);
   const [radius, setRadius] = useState('30');
@@ -46,10 +47,28 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
   const [onlyCity, setOnlyCity] = useState(false);
 
   const hasGmail = connectedProviders.some(p => p.provider === 'gmail');
+  const isSwissMode = searchMode === 'swiss_painting';
 
   const handleStart = () => {
+    if (isSwissMode) {
+      onStart({
+        search_mode: 'swiss_painting',
+        search_location: 'Ticino, Svizzera',
+        search_location_query: 'Lugano, Ticino, Svizzera',
+        search_radius: 50,
+        search_keywords: ['verniciatura'],
+        only_selected_city: false,
+        target_total: parseInt(target),
+        email_style: emailStyle,
+        include_risky: includeRisky,
+        user_city: cvData?.citta || 'Lugano',
+        cv_file_path: profile?.cv_file_path || undefined,
+      });
+      return;
+    }
     if (!location || keywords.length === 0) return;
     onStart({
+      search_mode: 'standard',
       search_location: location,
       search_location_query: locationSelection?.searchQuery || location,
       search_radius: parseInt(radius),
@@ -96,6 +115,43 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
+            <label className="text-sm font-medium mb-2 block">Modalità di ricerca</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSearchMode('standard')}
+                className={`p-3 rounded-lg border text-left transition-colors ${
+                  !isSwissMode
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <div className="font-semibold text-sm flex items-center gap-1.5">
+                  <Search className="h-4 w-4" /> Standard
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Scegli città e settori manualmente
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchMode('swiss_painting')}
+                className={`p-3 rounded-lg border text-left transition-colors ${
+                  isSwissMode
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <div className="font-semibold text-sm">🇨🇭 Verniciatura Svizzera</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Aziende di verniciatura industriale in Ticino e Svizzera, siti verificati
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {!isSwissMode && (
+          <div>
             <label className="text-sm font-medium mb-2 block">📍 Zona / Città</label>
             <CityAutocomplete
               placeholder="es. Lugano, Ticino..."
@@ -104,6 +160,8 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
               onLocationSelect={setLocationSelection}
             />
           </div>
+          )}
+
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -134,6 +192,7 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
             </div>
           </div>
 
+          {!isSwissMode && (
           <div>
             <label className="text-sm font-medium mb-2 block">Settori</label>
             <div className="flex flex-wrap gap-2">
@@ -151,6 +210,18 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
               ))}
             </div>
           </div>
+          )}
+
+          {isSwissMode && (
+            <Alert className="border-primary/30 bg-primary/5">
+              <Search className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-sm">
+                Il bot cercherà automaticamente aziende di <strong>verniciatura industriale</strong> in
+                Ticino e nel resto della Svizzera (IT/DE/FR/EN), verificando che ogni sito sia
+                online e che l'email sia reale. Rotazione automatica di parole chiave e città a ogni ciclo.
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -171,17 +242,19 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
               <Checkbox id="includeRisky" checked={includeRisky} onCheckedChange={(c) => setIncludeRisky(c as boolean)} />
               <label htmlFor="includeRisky" className="text-sm cursor-pointer">Includi contatti "risky" (meno verificati)</label>
             </div>
+            {!isSwissMode && (
             <div className="flex items-center gap-2">
               <Checkbox id="onlyCity" checked={onlyCity} onCheckedChange={(c) => setOnlyCity(c as boolean)} />
               <label htmlFor="onlyCity" className="text-sm cursor-pointer">Solo città selezionata</label>
             </div>
+            )}
           </div>
 
           <Button
             className="w-full"
             size="lg"
             onClick={handleStart}
-            disabled={!hasGmail || !location || keywords.length === 0}
+            disabled={!hasGmail || (!isSwissMode && (!location || keywords.length === 0))}
           >
             <Rocket className="h-5 w-5 mr-2" />
             Avvia Auto Mode
@@ -405,6 +478,9 @@ function CampaignDashboard({
       <Card>
         <CardContent className="pt-4 pb-4">
           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            {(campaign as any).search_mode === 'swiss_painting' && (
+              <Badge variant="outline" className="border-primary/40 text-primary">🇨🇭 Verniciatura Svizzera</Badge>
+            )}
             <span>📍 {campaign.search_location}</span>
             <span>📏 {campaign.search_radius} km</span>
             <span>🔑 {campaign.search_keywords?.join(', ')}</span>

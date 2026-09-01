@@ -61,6 +61,7 @@ export interface CampaignSetupData {
   include_risky: boolean;
   user_city?: string;
   cv_file_path?: string;
+  search_mode?: 'standard' | 'swiss_painting';
 }
 
 export function useAutoCampaign() {
@@ -136,6 +137,9 @@ export function useAutoCampaign() {
     const { data, error } = await supabase.from('auto_campaigns').insert({
       user_id: user.id,
       status: 'running',
+      search_mode: setup.search_mode || 'standard',
+      // Modalità svizzera: 5 set di keyword × 16 città = fino a 80 cicli di ricerca
+      max_search_cycles: setup.search_mode === 'swiss_painting' ? 80 : 10,
       search_location: setup.search_location,
       search_location_query: setup.search_location_query || setup.search_location,
       search_radius: setup.search_radius,
