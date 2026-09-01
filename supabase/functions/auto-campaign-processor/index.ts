@@ -17,6 +17,21 @@ const HOURLY_LIMIT = 15;
 const COOLDOWN_MINUTES = 9;
 const EMAILS_PER_INVOCATION = 3;
 
+// 🇨🇭 Modalità verniciatura Svizzera: rotazione keyword × città a ogni ciclo
+const SWISS_PAINTING_KEYWORD_SETS: string[][] = [
+  ["verniciatura industriale", "verniciatura a liquido", "verniciatura a polvere"],
+  ["verniciatura metalli", "trattamento superfici", "sabbiatura"],
+  ["industrial coating", "powder coating", "wet painting"],
+  ["industrielle Lackierung", "Pulverbeschichtung", "Oberflächenbehandlung"],
+  ["peinture industrielle", "traitement de surface", "thermolaquage"],
+];
+
+const SWISS_PAINTING_CITIES = [
+  "Lugano", "Mendrisio", "Bellinzona", "Locarno", "Manno", "Chiasso",
+  "Stabio", "Giubiasco", "Zurigo", "Basilea", "Berna", "Losanna",
+  "Ginevra", "San Gallo", "Winterthur", "Lucerna",
+];
+
 function supabaseAdmin() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 }
