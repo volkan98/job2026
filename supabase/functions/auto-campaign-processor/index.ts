@@ -17,20 +17,41 @@ const HOURLY_LIMIT = 15;
 const COOLDOWN_MINUTES = 9;
 const EMAILS_PER_INVOCATION = 3;
 
-// 🇨🇭 Modalità verniciatura Svizzera: rotazione keyword × città a ogni ciclo
+// 🇨🇭 Modalità verniciatura Ticino (zona Bioggio): rotazione keyword × città a ogni ciclo
 const SWISS_PAINTING_KEYWORD_SETS: string[][] = [
-  ["verniciatura industriale", "verniciatura a liquido", "verniciatura a polvere"],
+  ["verniciatura industriale", "verniciatura a spruzzo", "verniciatura a polvere"],
   ["verniciatura metalli", "trattamento superfici", "sabbiatura"],
+  ["carrozzeria industriale", "metalmeccanica verniciatura", "powder coating"],
   ["industrial coating", "powder coating", "wet painting"],
   ["industrielle Lackierung", "Pulverbeschichtung", "Oberflächenbehandlung"],
-  ["peinture industrielle", "traitement de surface", "thermolaquage"],
 ];
 
+// Ordine di priorità: dal più vicino a Bioggio verso nord (limite: Bellinzona)
 const SWISS_PAINTING_CITIES = [
-  "Lugano", "Mendrisio", "Bellinzona", "Locarno", "Manno", "Chiasso",
-  "Stabio", "Giubiasco", "Zurigo", "Basilea", "Berna", "Losanna",
-  "Ginevra", "San Gallo", "Winterthur", "Lucerna",
+  "Bioggio", "Manno", "Lamone", "Cadempino", "Gravesano", "Bedano",
+  "Vezia", "Agno", "Lugano", "Muzzano", "Caslano", "Taverne",
+  "Torricella", "Mezzovico", "Rivera", "Camorino", "Bellinzona",
 ];
+
+// Zone da escludere sempre (Mendrisiotto, Italia, resto della Svizzera)
+const EXCLUDED_AREAS = [
+  "mendrisio", "chiasso", "stabio", "balerna", "novazzano", "coldrerio",
+  "genestrerio", "rancate", "ligornetto", "morbio", "vacallo", "capolago",
+  "riva san vitale", "melano", "maroggia", "brusino", "mendrisiotto",
+  "italia", "italy", "como", "varese", "milano",
+  "zurigo", "zürich", "zurich", "basilea", "basel", "berna", "bern",
+  "losanna", "lausanne", "ginevra", "genève", "geneve", "san gallo",
+  "st. gallen", "winterthur", "lucerna", "luzern", "coira", "chur",
+  "locarno", "ascona", "minusio", "muralto", "biasca", "airolo", "faido",
+];
+
+function isInBioggioZone(company: any): boolean {
+  const t = `${company.city || ""} ${company.address || ""}`.toLowerCase();
+  if (!t.trim()) return false;
+  if (EXCLUDED_AREAS.some((a) => t.includes(a))) return false;
+  return SWISS_PAINTING_CITIES.some((c) => t.includes(c.toLowerCase()));
+}
+
 
 function supabaseAdmin() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
