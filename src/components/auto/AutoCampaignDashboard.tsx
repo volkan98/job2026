@@ -53,15 +53,16 @@ function CampaignSetup({ onStart }: { onStart: (data: CampaignSetupData) => void
     if (isSwissMode) {
       onStart({
         search_mode: 'swiss_painting',
-        search_location: 'Ticino, Svizzera',
-        search_location_query: 'Lugano, Ticino, Svizzera',
-        search_radius: 50,
-        search_keywords: ['verniciatura'],
+        search_location: 'Bioggio, Canton Ticino',
+        search_location_query: 'Bioggio, Canton Ticino, Svizzera',
+        search_radius: 15,
+        search_keywords: ['verniciatura industriale'],
         only_selected_city: false,
         target_total: parseInt(target),
         email_style: emailStyle,
         include_risky: includeRisky,
-        user_city: cvData?.citta || 'Lugano',
+        user_city: cvData?.citta || 'Bioggio',
+
         cv_file_path: profile?.cv_file_path || undefined,
       });
       return;
