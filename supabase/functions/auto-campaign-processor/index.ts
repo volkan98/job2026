@@ -26,10 +26,11 @@ const SWISS_PAINTING_KEYWORD_SETS: string[][] = [
   ["industrielle Lackierung", "Pulverbeschichtung", "Oberflächenbehandlung"],
 ];
 
-// Ordine di priorità: dal più vicino a Bioggio verso nord (limite: Bellinzona)
+// Ordine di priorità: Bioggio → Manno → Lamone/Cadempino → Gravesano → Bedano
+// → Agno → Lugano e vicinanze → Taverne/Torricella → nord (limite assoluto: Bellinzona)
 const SWISS_PAINTING_CITIES = [
   "Bioggio", "Manno", "Lamone", "Cadempino", "Gravesano", "Bedano",
-  "Vezia", "Agno", "Lugano", "Muzzano", "Caslano", "Taverne",
+  "Agno", "Muzzano", "Caslano", "Vezia", "Lugano", "Taverne",
   "Torricella", "Mezzovico", "Rivera", "Camorino", "Bellinzona",
 ];
 
