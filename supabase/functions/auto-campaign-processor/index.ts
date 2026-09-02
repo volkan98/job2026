@@ -779,6 +779,30 @@ async function processCampaign(sb: any, campaign: any) {
       console.error(`Send error for ${item.company_name}:`, err);
       const isRateLimit = err.message?.includes("429") ||
         err.message?.includes("rate") || err.message?.includes("quota");
+      const isScopeError = err.message?.includes("insufficient authentication") ||
+        err.message?.includes("ACCESS_TOKEN_SCOPE_INSUFFICIENT") ||
+        err.message?.includes("insufficientPermissions") ||
+        err.message?.includes("invalid_grant") ||
+        err.message?.includes("401");
+
+      if (isScopeError) {
+        await sb.from("auto_campaigns").update({
+          status: "paused",
+          pause_reason:
+            "Connessione Gmail non valida: riconnetti l'account Gmail (permesso invio mancante)",
+          resume_at: null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", campaignId);
+        await logEvent(
+          sb,
+          campaignId,
+          userId,
+          "paused_auth",
+          "⚠️ Gmail non autorizzato all'invio. Vai su Connetti Gmail e riconnetti l'account, poi premi Riprendi.",
+        );
+        break;
+      }
+
 
       if (isRateLimit) {
         const resumeAt = new Date(Date.now() + COOLDOWN_MINUTES * 60 * 1000)
