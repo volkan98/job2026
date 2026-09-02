@@ -231,10 +231,16 @@ async function batchValidateEmails(
   const emails = [
     ...new Set(companies.map((c) => c.email).filter(Boolean) as string[]),
   ];
-  const batchSize = 8;
+  const batchSize = 12;
+  const deadline = Date.now() + 40000;
 
   for (let i = 0; i < emails.length; i += batchSize) {
+    if (Date.now() > deadline) {
+      console.log(`Email validation budget reached at ${i}/${emails.length}`);
+      break;
+    }
     const batch = emails.slice(i, i + batchSize);
+
     const validations = await Promise.all(batch.map(async (email) => {
       const domain_valid = await validateEmailDomain(email);
       const recipient = domain_valid
