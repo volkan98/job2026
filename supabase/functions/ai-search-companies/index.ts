@@ -605,16 +605,29 @@ async function verifyOneCompany(c: CompanyResult): Promise<CompanyResult | null>
 
 async function verifyWebsitesAndExtractEmails(
   companies: CompanyResult[],
+  budgetMs = 70000,
 ): Promise<CompanyResult[]> {
   const out: CompanyResult[] = [];
-  const batchSize = 6;
+  const deadline = Date.now() + budgetMs;
+  const batchSize = 12;
   for (let i = 0; i < companies.length; i += batchSize) {
+    if (Date.now() > deadline) {
+      // Time budget exhausted: keep remaining companies unverified (marked risky)
+      for (const c of companies.slice(i)) {
+        out.push({ ...c, final_status: c.email ? "risky_send" : c.final_status });
+      }
+      console.log(
+        `Website verification budget reached, ${companies.length - i} companies kept unverified`,
+      );
+      break;
+    }
     const batch = companies.slice(i, i + batchSize);
     const results = await Promise.all(batch.map((c) => verifyOneCompany(c)));
     for (const r of results) if (r) out.push(r);
   }
   return out;
 }
+
 
 function normalizeCompanyName(name: string): string {
 
