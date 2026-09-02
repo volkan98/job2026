@@ -1315,9 +1315,11 @@ Calcola distanza e tempo da ${originCity}.`;
         }
 
         const validation = validationResults.get(c.email);
-        const domainValid = validation?.domain_valid ?? false;
-        const smtpStatus = validation?.smtp_status ?? "invalid_email";
+        // Se la validazione non è stata eseguita (budget tempo), non scartare
+        const domainValid = validation?.domain_valid ?? true;
+        const smtpStatus = validation?.smtp_status ?? "unverifiable_email";
         const catchAll = validation?.catch_all ?? false;
+
 
         let next: CompanyResult = {
           ...c,
