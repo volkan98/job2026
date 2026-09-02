@@ -231,10 +231,16 @@ async function batchValidateEmails(
   const emails = [
     ...new Set(companies.map((c) => c.email).filter(Boolean) as string[]),
   ];
-  const batchSize = 8;
+  const batchSize = 12;
+  const deadline = Date.now() + 40000;
 
   for (let i = 0; i < emails.length; i += batchSize) {
+    if (Date.now() > deadline) {
+      console.log(`Email validation budget reached at ${i}/${emails.length}`);
+      break;
+    }
     const batch = emails.slice(i, i + batchSize);
+
     const validations = await Promise.all(batch.map(async (email) => {
       const domain_valid = await validateEmailDomain(email);
       const recipient = domain_valid
@@ -605,16 +611,29 @@ async function verifyOneCompany(c: CompanyResult): Promise<CompanyResult | null>
 
 async function verifyWebsitesAndExtractEmails(
   companies: CompanyResult[],
+  budgetMs = 70000,
 ): Promise<CompanyResult[]> {
   const out: CompanyResult[] = [];
-  const batchSize = 6;
+  const deadline = Date.now() + budgetMs;
+  const batchSize = 12;
   for (let i = 0; i < companies.length; i += batchSize) {
+    if (Date.now() > deadline) {
+      // Time budget exhausted: keep remaining companies unverified (marked risky)
+      for (const c of companies.slice(i)) {
+        out.push({ ...c, final_status: c.email ? "risky_send" : c.final_status });
+      }
+      console.log(
+        `Website verification budget reached, ${companies.length - i} companies kept unverified`,
+      );
+      break;
+    }
     const batch = companies.slice(i, i + batchSize);
     const results = await Promise.all(batch.map((c) => verifyOneCompany(c)));
     for (const r of results) if (r) out.push(r);
   }
   return out;
 }
+
 
 function normalizeCompanyName(name: string): string {
 
@@ -1296,9 +1315,11 @@ Calcola distanza e tempo da ${originCity}.`;
         }
 
         const validation = validationResults.get(c.email);
-        const domainValid = validation?.domain_valid ?? false;
-        const smtpStatus = validation?.smtp_status ?? "invalid_email";
+        // Se la validazione non è stata eseguita (budget tempo), non scartare
+        const domainValid = validation?.domain_valid ?? true;
+        const smtpStatus = validation?.smtp_status ?? "unverifiable_email";
         const catchAll = validation?.catch_all ?? false;
+
 
         let next: CompanyResult = {
           ...c,
